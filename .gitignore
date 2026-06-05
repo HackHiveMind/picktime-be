@@ -1,0 +1,25 @@
+/.idea
+/.vscode
+.DS_Store
+
+# Laravel / PHP
+/vendor
+/.env
+/.env.*
+!/\.env.example
+/storage/*.key
+/storage/app/*
+!/storage/app/.gitignore
+/storage/framework/cache/*
+/storage/framework/sessions/*
+/storage/framework/testing/*
+/storage/framework/views/*
+/storage/logs/*
+
+# Node / build artifacts
+/node_modules
+/public/build
+/public/hot
+/npm-debug.log
+/yarn-error.log
+

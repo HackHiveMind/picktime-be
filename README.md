@@ -24,15 +24,15 @@ Set these values in `.env` from the Supabase project database settings:
 
 ```env
 DB_CONNECTION=pgsql
-DB_HOST=db.your-project-ref.supabase.co
+DB_HOST=aws-1-eu-central-1.pooler.supabase.com
 DB_PORT=5432
 DB_DATABASE=postgres
-DB_USERNAME=postgres
+DB_USERNAME=postgres.your-project-ref
 DB_PASSWORD=your-supabase-database-password
 DB_SSLMODE=require
 ```
 
-Use the direct database connection for migrations. If the app is deployed in a serverless/runtime with many short connections, use the Supabase pooler host and port provided by Supabase for runtime traffic.
+Use the Session Pooler connection string for local migrations when the direct database host is IPv6-only. Copy the exact host, port, and username from **Project Settings > Database > Connection string > Session pooler**.
 
 ## Development
 

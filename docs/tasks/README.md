@@ -19,4 +19,4 @@ Local task tracker for the Picktime Laravel backend.
 5. [Auth and Permissions](005-auth-and-permissions.md)
 6. [Tests and Seeding](006-tests-and-seeding.md)
 7. [Supabase Database](007-supabase-database.md)
-
+8. [Connect Supabase Database](008-connect-supabase-database.md)

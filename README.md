@@ -30,6 +30,29 @@ The local API health endpoint is available at:
 GET /api/health
 ```
 
+## Public API
+
+```text
+GET  /api/rooms
+GET  /api/rooms/{room_id}/availability?date=YYYY-MM-DD
+POST /api/reservations
+```
+
+Public reservations accept this JSON shape:
+
+```json
+{
+  "room_id": "imeet",
+  "date": "2026-06-10",
+  "start_time": "09:00",
+  "first_name": "Ana",
+  "last_name": "Popescu",
+  "email": "ana@example.com",
+  "phone": "+373 600 00 000",
+  "notes": "Project meeting"
+}
+```
+
 ## Tests
 
 ```bash
@@ -42,4 +65,3 @@ composer test
 - Each task starts from the latest `main`.
 - Branch names use the task name directly, without prefixes.
 - Each completed task is committed and pushed.
-

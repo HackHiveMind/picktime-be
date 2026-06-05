@@ -1,0 +1,107 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Enums\ReservationStatus;
+use App\Models\Reservation;
+use App\Models\Room;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+
+class BookingApiTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_public_rooms_endpoint_returns_active_rooms(): void
+    {
+        Room::factory()->create([
+            'name' => 'iMEET Room',
+            'slug' => 'imeet',
+            'capacity' => 8,
+            'is_active' => true,
+        ]);
+        Room::factory()->create(['is_active' => false]);
+
+        $this->getJson('/api/rooms')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', 'imeet')
+            ->assertJsonPath('data.0.name', 'iMEET Room')
+            ->assertJsonPath('data.0.capacity', 8);
+    }
+
+    public function test_availability_endpoint_marks_existing_reservations_unavailable(): void
+    {
+        $room = Room::factory()->create(['slug' => 'imeet']);
+        Reservation::factory()->for($room)->create([
+            'status' => ReservationStatus::Confirmed,
+            'reserved_date' => '2026-06-10',
+            'starts_at' => '09:00',
+            'ends_at' => '10:00',
+        ]);
+
+        $this->getJson('/api/rooms/imeet/availability?date=2026-06-10')
+            ->assertOk()
+            ->assertJsonPath('data.room_id', 'imeet')
+            ->assertJsonPath('data.date', '2026-06-10')
+            ->assertJsonPath('data.slots.0.start', '09:00')
+            ->assertJsonPath('data.slots.0.end', '10:00')
+            ->assertJsonPath('data.slots.0.available', false)
+            ->assertJsonPath('data.slots.1.start', '10:00')
+            ->assertJsonPath('data.slots.1.available', true);
+    }
+
+    public function test_public_reservation_endpoint_creates_a_reservation(): void
+    {
+        Room::factory()->create(['slug' => 'imeet']);
+
+        $this->postJson('/api/reservations', [
+            'room_id' => 'imeet',
+            'date' => '2026-06-10',
+            'start_time' => '09:00',
+            'first_name' => 'Ana',
+            'last_name' => 'Popescu',
+            'email' => 'Ana@Example.com',
+            'phone' => '+373 600 00 000',
+            'notes' => 'Project meeting',
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.room_id', 'imeet')
+            ->assertJsonPath('data.date', '2026-06-10')
+            ->assertJsonPath('data.start_time', '09:00')
+            ->assertJsonPath('data.end_time', '10:00')
+            ->assertJsonPath('data.email', 'ana@example.com')
+            ->assertJsonPath('data.status', 'confirmed');
+
+        $this->assertDatabaseHas('reservations', [
+            'first_name' => 'Ana',
+            'last_name' => 'Popescu',
+            'email' => 'ana@example.com',
+            'starts_at' => '09:00',
+            'ends_at' => '10:00',
+        ]);
+    }
+
+    public function test_public_reservation_endpoint_rejects_double_booking(): void
+    {
+        $room = Room::factory()->create(['slug' => 'imeet']);
+        Reservation::factory()->for($room)->create([
+            'reserved_date' => '2026-06-10',
+            'starts_at' => '09:00',
+            'ends_at' => '10:00',
+        ]);
+
+        $this->postJson('/api/reservations', [
+            'room_id' => 'imeet',
+            'date' => '2026-06-10',
+            'start_time' => '09:00',
+            'first_name' => 'Ana',
+            'last_name' => 'Popescu',
+            'email' => 'ana@example.com',
+            'phone' => '+373 600 00 000',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Selected room is already reserved for this time slot.');
+    }
+}
+

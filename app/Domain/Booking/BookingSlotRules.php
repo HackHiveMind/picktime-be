@@ -19,6 +19,13 @@ class BookingSlotRules
         return 60;
     }
 
+    public function endForStart(string $start): string
+    {
+        $hour = (int) substr($start, 0, 2);
+
+        return sprintf('%02d:00', $hour + 1);
+    }
+
     /**
      * @return list<string>
      */
@@ -40,4 +47,3 @@ class BookingSlotRules
         ];
     }
 }
-

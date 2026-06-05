@@ -7,7 +7,7 @@ Laravel API backend for the Picktime/iHUB booking platform.
 - PHP 8.3 or newer
 - Composer
 - Node.js and npm
-- SQLite for local development, or another Laravel-supported database
+- Supabase PostgreSQL database
 
 ## Setup
 
@@ -17,6 +17,22 @@ cp .env.example .env
 php artisan key:generate
 php artisan migrate
 ```
+
+## Supabase Database
+
+Set these values in `.env` from the Supabase project database settings:
+
+```env
+DB_CONNECTION=pgsql
+DB_HOST=db.your-project-ref.supabase.co
+DB_PORT=5432
+DB_DATABASE=postgres
+DB_USERNAME=postgres
+DB_PASSWORD=your-supabase-database-password
+DB_SSLMODE=require
+```
+
+Use the direct database connection for migrations. If the app is deployed in a serverless/runtime with many short connections, use the Supabase pooler host and port provided by Supabase for runtime traffic.
 
 ## Development
 

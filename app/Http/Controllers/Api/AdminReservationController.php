@@ -8,6 +8,7 @@ use App\Models\Reservation;
 use App\Models\Room;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Response;
 use Illuminate\Validation\Rule;
 
 class AdminReservationController extends Controller
@@ -39,39 +40,17 @@ class AdminReservationController extends Controller
             ->map(fn (Reservation $reservation): array => $this->reservationResponse($reservation))
             ->values();
 
-        return response()->json(['data' => $reservations]);
+        return new JsonResponse(['data' => $reservations]);
     }
 
     public function store(Request $request): JsonResponse
     {
-        $validated = $request->validate([
-            'room_id' => ['required', Rule::exists('rooms', 'slug')->where('is_active', true)],
-            'date' => ['required', 'date_format:Y-m-d'],
-            'start_time' => ['required', 'date_format:H:i'],
-            'end_time' => ['required', 'date_format:H:i', 'after:start_time'],
-            'first_name' => ['required', 'string', 'max:255'],
-            'last_name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255'],
-            'phone' => ['required', 'string', 'max:255'],
-            'status' => ['nullable', Rule::enum(ReservationStatus::class)],
-            'notes' => ['nullable', 'string', 'max:2000'],
-        ]);
+        $validated = $this->validateReservationPayload($request);
 
-        $room = Room::query()
-            ->where('slug', $validated['room_id'])
-            ->where('is_active', true)
-            ->firstOrFail();
+        $room = $this->activeRoom($validated['room_id']);
 
-        $hasOverlap = Reservation::query()
-            ->where('room_id', $room->id)
-            ->whereDate('reserved_date', $validated['date'])
-            ->where('status', '!=', ReservationStatus::Cancelled)
-            ->where('starts_at', '<', $validated['end_time'])
-            ->where('ends_at', '>', $validated['start_time'])
-            ->exists();
-
-        if ($hasOverlap) {
-            return response()->json([
+        if ($this->hasOverlap($room, $validated)) {
+            return new JsonResponse([
                 'message' => 'Selected room is already reserved for this time range.',
             ], 422);
         }
@@ -89,9 +68,99 @@ class AdminReservationController extends Controller
             'notes' => isset($validated['notes']) ? trim($validated['notes']) : null,
         ]);
 
-        return response()->json([
+        return new JsonResponse([
             'data' => $this->reservationResponse($reservation->load('room')),
         ], 201);
+    }
+
+    public function update(Request $request, Reservation $reservation): JsonResponse
+    {
+        $validated = $this->validateReservationPayload($request);
+
+        $room = $this->activeRoom($validated['room_id']);
+
+        if ($this->hasOverlap($room, $validated, $reservation)) {
+            return new JsonResponse([
+                'message' => 'Selected room is already reserved for this time range.',
+            ], 422);
+        }
+
+        $reservation->update([
+            'room_id' => $room->id,
+            'status' => $validated['status'] ?? $reservation->status,
+            'reserved_date' => $validated['date'],
+            'starts_at' => $validated['start_time'],
+            'ends_at' => $validated['end_time'],
+            'first_name' => trim($validated['first_name']),
+            'last_name' => trim($validated['last_name']),
+            'email' => str($validated['email'])->lower()->toString(),
+            'phone' => trim($validated['phone']),
+            'notes' => isset($validated['notes']) ? trim($validated['notes']) : null,
+        ]);
+
+        return new JsonResponse([
+            'data' => $this->reservationResponse($reservation->load('room')),
+        ]);
+    }
+
+    public function cancel(Reservation $reservation): JsonResponse
+    {
+        $reservation->update([
+            'status' => ReservationStatus::Cancelled,
+        ]);
+
+        return new JsonResponse([
+            'data' => $this->reservationResponse($reservation->load('room')),
+        ]);
+    }
+
+    public function destroy(Reservation $reservation): Response
+    {
+        $reservation->delete();
+
+        return new Response(null, Response::HTTP_NO_CONTENT);
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function validateReservationPayload(Request $request): array
+    {
+        return $request->validate([
+            'room_id' => ['required', Rule::exists('rooms', 'slug')->where('is_active', true)],
+            'date' => ['required', 'date_format:Y-m-d'],
+            'start_time' => ['required', 'date_format:H:i'],
+            'end_time' => ['required', 'date_format:H:i', 'after:start_time'],
+            'first_name' => ['required', 'string', 'max:255'],
+            'last_name' => ['required', 'string', 'max:255'],
+            'email' => ['required', 'email', 'max:255'],
+            'phone' => ['required', 'string', 'max:255'],
+            'status' => ['nullable', Rule::enum(ReservationStatus::class)],
+            'notes' => ['nullable', 'string', 'max:2000'],
+        ]);
+    }
+
+    private function activeRoom(string $slug): Room
+    {
+        return Room::query()
+            ->where('slug', $slug)
+            ->where('is_active', true)
+            ->firstOrFail();
+    }
+
+    /**
+     * @param array<string, mixed> $validated
+     */
+    private function hasOverlap(Room $room, array $validated, ?Reservation $ignoreReservation = null): bool
+    {
+        return Reservation::query()
+            ->where('room_id', $room->id)
+            ->whereDate('reserved_date', $validated['date'])
+            ->where('status', '!=', ReservationStatus::Cancelled)
+            ->when($ignoreReservation, fn ($query) => $query->whereKeyNot($ignoreReservation->id))
+            ->where('starts_at', '<', $validated['end_time'])
+            ->where('ends_at', '>', $validated['start_time'])
+            ->exists();
     }
 
     private function reservationResponse(Reservation $reservation): array
@@ -118,4 +187,3 @@ class AdminReservationController extends Controller
         return substr($time, 0, 5);
     }
 }
-

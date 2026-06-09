@@ -97,4 +97,99 @@ class AdminReservationApiTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonPath('message', 'Selected room is already reserved for this time range.');
     }
+
+    public function test_admin_can_update_reservation(): void
+    {
+        $room = Room::factory()->create(['slug' => 'imeet']);
+        $reservation = Reservation::factory()->for($room)->create([
+            'first_name' => 'Ana',
+            'reserved_date' => '2026-07-04',
+            'starts_at' => '13:00',
+            'ends_at' => '15:00',
+        ]);
+
+        $this->putJson("/api/admin/reservations/{$reservation->id}", [
+            'room_id' => 'imeet',
+            'date' => '2026-07-05',
+            'start_time' => '10:00',
+            'end_time' => '11:30',
+            'first_name' => 'Maria',
+            'last_name' => 'Ionescu',
+            'email' => 'MARIA@EXAMPLE.COM',
+            'phone' => '060000000',
+            'status' => 'confirmed',
+            'notes' => 'Moved by admin',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.date', '2026-07-05')
+            ->assertJsonPath('data.start_time', '10:00')
+            ->assertJsonPath('data.end_time', '11:30')
+            ->assertJsonPath('data.first_name', 'Maria')
+            ->assertJsonPath('data.email', 'maria@example.com')
+            ->assertJsonPath('data.notes', 'Moved by admin');
+
+        $this->assertDatabaseHas('reservations', [
+            'id' => $reservation->id,
+            'first_name' => 'Maria',
+            'starts_at' => '10:00',
+            'ends_at' => '11:30',
+        ]);
+        $this->assertSame('2026-07-05', $reservation->refresh()->reserved_date->format('Y-m-d'));
+    }
+
+    public function test_admin_update_reservation_rejects_overlapping_booking(): void
+    {
+        $room = Room::factory()->create(['slug' => 'imeet']);
+        Reservation::factory()->for($room)->create([
+            'reserved_date' => '2026-07-04',
+            'starts_at' => '13:00',
+            'ends_at' => '15:00',
+        ]);
+        $reservation = Reservation::factory()->for($room)->create([
+            'reserved_date' => '2026-07-05',
+            'starts_at' => '10:00',
+            'ends_at' => '11:00',
+        ]);
+
+        $this->putJson("/api/admin/reservations/{$reservation->id}", [
+            'room_id' => 'imeet',
+            'date' => '2026-07-04',
+            'start_time' => '14:00',
+            'end_time' => '16:00',
+            'first_name' => 'Ana',
+            'last_name' => 'Popescu',
+            'email' => 'ana@example.com',
+            'phone' => '069123456',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Selected room is already reserved for this time range.');
+    }
+
+    public function test_admin_can_cancel_reservation(): void
+    {
+        $reservation = Reservation::factory()->create([
+            'status' => ReservationStatus::Confirmed,
+        ]);
+
+        $this->patchJson("/api/admin/reservations/{$reservation->id}/cancel")
+            ->assertOk()
+            ->assertJsonPath('data.status', 'cancelled');
+
+        $this->assertDatabaseHas('reservations', [
+            'id' => $reservation->id,
+            'status' => 'cancelled',
+        ]);
+    }
+
+    public function test_admin_can_delete_reservation(): void
+    {
+        $reservation = Reservation::factory()->create();
+
+        $this->deleteJson("/api/admin/reservations/{$reservation->id}")
+            ->assertNoContent();
+
+        $this->assertDatabaseMissing('reservations', [
+            'id' => $reservation->id,
+        ]);
+    }
 }

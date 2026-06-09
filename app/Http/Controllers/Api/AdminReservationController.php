@@ -20,10 +20,17 @@ class AdminReservationController extends Controller
             'date_from' => ['nullable', 'date_format:Y-m-d'],
             'date_to' => ['nullable', 'date_format:Y-m-d'],
             'room_id' => ['nullable', 'string', 'exists:rooms,slug'],
+            'include_cancelled' => ['nullable', Rule::in(['true', 'false', '1', '0', true, false, 1, 0])],
         ]);
+
+        $includeCancelled = $request->boolean('include_cancelled');
 
         $reservations = Reservation::query()
             ->with('room')
+            ->when(
+                ! $includeCancelled,
+                fn ($query) => $query->where('status', '!=', ReservationStatus::Cancelled),
+            )
             ->when(
                 $validated['date_from'] ?? null,
                 fn ($query, string $date) => $query->whereDate('reserved_date', '>=', $date),

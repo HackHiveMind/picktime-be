@@ -103,5 +103,20 @@ class BookingApiTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonPath('message', 'Selected room is already reserved for this time slot.');
     }
-}
 
+    public function test_public_reservation_validation_errors_return_unprocessable_json(): void
+    {
+        Room::factory()->create(['slug' => 'imeet']);
+
+        $this->postJson('/api/reservations', [
+            'room_id' => 'imeet',
+            'date' => '2026-06-10',
+            'first_name' => 'Ana',
+            'last_name' => 'Popescu',
+            'email' => 'ana@example.com',
+            'phone' => '+373 600 00 000',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'The start time field is required.');
+    }
+}

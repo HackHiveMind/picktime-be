@@ -539,11 +539,11 @@ if (bookingApp) {
     };
 
     const selectSlot = (slot) => {
-        form.start_time.value = slot.start_time;
-        form.end_time.value = slot.end_time;
+        form.start_time.value = slot.start;
+        form.end_time.value = slot.end;
         submitButton.disabled = false;
         slotList.querySelectorAll('button').forEach((button) => button.dataset.selected = 'false');
-        slotList.querySelector(`[data-start="${slot.start_time}"]`).dataset.selected = 'true';
+        slotList.querySelector(`[data-start="${slot.start}"]`).dataset.selected = 'true';
     };
 
     const loadAvailability = async () => {
@@ -566,8 +566,8 @@ if (bookingApp) {
         }
 
         slotList.innerHTML = slots.map((slot) => `
-            <button type="button" data-start="${slot.start_time}" class="rounded-md border border-neutral-300 px-3 py-2 text-left text-sm data-[selected=true]:border-neutral-950 data-[selected=true]:bg-neutral-950 data-[selected=true]:text-white">
-                ${slot.start_time} - ${slot.end_time}
+            <button type="button" data-start="${slot.start}" class="rounded-md border border-neutral-300 px-3 py-2 text-left text-sm data-[selected=true]:border-neutral-950 data-[selected=true]:bg-neutral-950 data-[selected=true]:text-white">
+                ${slot.label}
             </button>
         `).join('');
 

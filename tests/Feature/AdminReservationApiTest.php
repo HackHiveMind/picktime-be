@@ -40,6 +40,45 @@ class AdminReservationApiTest extends TestCase
             ->assertJsonPath('data.0.status', 'pending');
     }
 
+    public function test_admin_list_excludes_cancelled_reservations_by_default(): void
+    {
+        $room = Room::factory()->create(['slug' => 'imeet', 'name' => 'iMEET Room']);
+        Reservation::factory()->for($room)->create([
+            'reserved_date' => '2026-07-04',
+            'starts_at' => '13:00',
+            'ends_at' => '14:00',
+            'status' => ReservationStatus::Cancelled,
+        ]);
+        Reservation::factory()->for($room)->create([
+            'reserved_date' => '2026-07-04',
+            'starts_at' => '14:00',
+            'ends_at' => '15:00',
+            'status' => ReservationStatus::Confirmed,
+        ]);
+
+        $this->getJson('/api/admin/reservations?date_from=2026-07-04&date_to=2026-07-04')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.start_time', '14:00')
+            ->assertJsonPath('data.0.status', 'confirmed');
+    }
+
+    public function test_admin_list_can_include_cancelled_reservations(): void
+    {
+        $room = Room::factory()->create(['slug' => 'imeet', 'name' => 'iMEET Room']);
+        Reservation::factory()->for($room)->create([
+            'reserved_date' => '2026-07-04',
+            'starts_at' => '13:00',
+            'ends_at' => '14:00',
+            'status' => ReservationStatus::Cancelled,
+        ]);
+
+        $this->getJson('/api/admin/reservations?include_cancelled=true')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.status', 'cancelled');
+    }
+
     public function test_admin_can_create_reservation_with_custom_time_range(): void
     {
         Room::factory()->create(['slug' => 'imeet']);

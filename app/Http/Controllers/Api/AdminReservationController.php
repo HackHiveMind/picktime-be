@@ -6,6 +6,7 @@ use App\Enums\ReservationStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Reservation;
 use App\Models\Room;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -126,11 +127,11 @@ class AdminReservationController extends Controller
      */
     private function validateReservationPayload(Request $request): array
     {
-        return $request->validate([
+        $validated = $request->validate([
             'room_id' => ['required', Rule::exists('rooms', 'slug')->where('is_active', true)],
             'date' => ['required', 'date_format:Y-m-d'],
             'start_time' => ['required', 'date_format:H:i'],
-            'end_time' => ['required', 'date_format:H:i', 'after:start_time'],
+            'end_time' => ['nullable', 'date_format:H:i', 'after:start_time'],
             'first_name' => ['required', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', 'max:255'],
@@ -138,6 +139,12 @@ class AdminReservationController extends Controller
             'status' => ['nullable', Rule::enum(ReservationStatus::class)],
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
+
+        $validated['end_time'] ??= CarbonImmutable::createFromFormat('H:i', $validated['start_time'])
+            ->addHour()
+            ->format('H:i');
+
+        return $validated;
     }
 
     private function activeRoom(string $slug): Room

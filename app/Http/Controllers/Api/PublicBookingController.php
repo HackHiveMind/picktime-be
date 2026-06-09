@@ -78,6 +78,7 @@ class PublicBookingController extends Controller
         $alreadyReserved = Reservation::query()
             ->where('room_id', $room->id)
             ->whereDate('reserved_date', $validated['date'])
+            ->where('status', '!=', ReservationStatus::Cancelled)
             ->where('starts_at', $validated['start_time'])
             ->exists();
 
@@ -87,18 +88,27 @@ class PublicBookingController extends Controller
             ], 422);
         }
 
-        $reservation = Reservation::query()->create([
+        $reservation = Reservation::query()
+            ->where('room_id', $room->id)
+            ->whereDate('reserved_date', $validated['date'])
+            ->where('starts_at', $validated['start_time'])
+            ->first();
+
+        $reservation ??= new Reservation([
             'room_id' => $room->id,
-            'status' => ReservationStatus::Confirmed,
             'reserved_date' => $validated['date'],
             'starts_at' => $validated['start_time'],
+        ]);
+
+        $reservation->fill([
+            'status' => ReservationStatus::Confirmed,
             'ends_at' => $slotRules->endForStart($validated['start_time']),
             'first_name' => trim($validated['first_name']),
             'last_name' => trim($validated['last_name']),
             'email' => str($validated['email'])->lower()->toString(),
             'phone' => trim($validated['phone']),
             'notes' => isset($validated['notes']) ? trim($validated['notes']) : null,
-        ]);
+        ])->save();
 
         return new JsonResponse([
             'data' => $this->reservationResponse($reservation->load('room')),

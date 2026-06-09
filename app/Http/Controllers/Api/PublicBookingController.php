@@ -22,7 +22,7 @@ class PublicBookingController extends Controller
             ->map(fn (Room $room): array => $this->roomResponse($room))
             ->values();
 
-        return response()->json(['data' => $rooms]);
+        return new JsonResponse(['data' => $rooms]);
     }
 
     public function availability(Request $request, Room $room, BookingSlotRules $slotRules): JsonResponse
@@ -48,7 +48,7 @@ class PublicBookingController extends Controller
             ])
             ->values();
 
-        return response()->json([
+        return new JsonResponse([
             'data' => [
                 'room_id' => $room->slug,
                 'date' => $validated['date'],
@@ -82,7 +82,7 @@ class PublicBookingController extends Controller
             ->exists();
 
         if ($alreadyReserved) {
-            return response()->json([
+            return new JsonResponse([
                 'message' => 'Selected room is already reserved for this time slot.',
             ], 422);
         }
@@ -100,7 +100,7 @@ class PublicBookingController extends Controller
             'notes' => isset($validated['notes']) ? trim($validated['notes']) : null,
         ]);
 
-        return response()->json([
+        return new JsonResponse([
             'data' => $this->reservationResponse($reservation->load('room')),
         ], 201);
     }

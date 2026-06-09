@@ -5,6 +5,7 @@ use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\HttpExceptionInterface;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -23,6 +24,13 @@ return Application::configure(basePath: dirname(__DIR__))
         );
 
         $exceptions->render(function (Throwable $exception, Request $request): JsonResponse {
+            if ($exception instanceof ValidationException) {
+                return new JsonResponse([
+                    'message' => $exception->getMessage(),
+                    'errors' => $exception->errors(),
+                ], $exception->status);
+            }
+
             $status = $exception instanceof HttpExceptionInterface
                 ? $exception->getStatusCode()
                 : 500;

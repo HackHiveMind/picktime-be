@@ -104,6 +104,42 @@ class BookingApiTest extends TestCase
             ->assertJsonPath('message', 'Selected room is already reserved for this time slot.');
     }
 
+    public function test_public_reservation_endpoint_can_rebook_cancelled_slot(): void
+    {
+        $room = Room::factory()->create(['slug' => 'imeet']);
+        $reservation = Reservation::factory()->for($room)->create([
+            'status' => ReservationStatus::Cancelled,
+            'reserved_date' => '2026-06-10',
+            'starts_at' => '09:00',
+            'ends_at' => '10:00',
+            'first_name' => 'Old',
+            'last_name' => 'Guest',
+            'email' => 'old@example.com',
+            'phone' => '000',
+        ]);
+
+        $this->postJson('/api/reservations', [
+            'room_id' => 'imeet',
+            'date' => '2026-06-10',
+            'start_time' => '09:00',
+            'first_name' => 'Ana',
+            'last_name' => 'Popescu',
+            'email' => 'ana@example.com',
+            'phone' => '+373 600 00 000',
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.id', (string) $reservation->id)
+            ->assertJsonPath('data.status', 'confirmed')
+            ->assertJsonPath('data.email', 'ana@example.com');
+
+        $this->assertDatabaseCount('reservations', 1);
+        $this->assertDatabaseHas('reservations', [
+            'id' => $reservation->id,
+            'status' => 'confirmed',
+            'email' => 'ana@example.com',
+        ]);
+    }
+
     public function test_public_reservation_validation_errors_return_unprocessable_json(): void
     {
         Room::factory()->create(['slug' => 'imeet']);

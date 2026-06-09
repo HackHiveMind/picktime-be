@@ -121,6 +121,43 @@ class AdminReservationApiTest extends TestCase
             ->assertJsonPath('message', 'Selected room is already reserved for this time range.');
     }
 
+    public function test_admin_can_rebook_cancelled_reservation_slot(): void
+    {
+        $room = Room::factory()->create(['slug' => 'imeet']);
+        $reservation = Reservation::factory()->for($room)->create([
+            'status' => ReservationStatus::Cancelled,
+            'reserved_date' => '2026-07-04',
+            'starts_at' => '13:00',
+            'ends_at' => '14:00',
+            'first_name' => 'Old',
+            'last_name' => 'Guest',
+            'email' => 'old@example.com',
+            'phone' => '000',
+        ]);
+
+        $this->postJson('/api/admin/reservations', [
+            'room_id' => 'imeet',
+            'date' => '2026-07-04',
+            'start_time' => '13:00',
+            'end_time' => '14:00',
+            'first_name' => 'Ana',
+            'last_name' => 'Popescu',
+            'email' => 'ana@example.com',
+            'phone' => '069123456',
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.id', (string) $reservation->id)
+            ->assertJsonPath('data.status', 'confirmed')
+            ->assertJsonPath('data.first_name', 'Ana');
+
+        $this->assertDatabaseCount('reservations', 1);
+        $this->assertDatabaseHas('reservations', [
+            'id' => $reservation->id,
+            'status' => 'confirmed',
+            'email' => 'ana@example.com',
+        ]);
+    }
+
     public function test_admin_can_update_reservation(): void
     {
         $room = Room::factory()->create(['slug' => 'imeet']);

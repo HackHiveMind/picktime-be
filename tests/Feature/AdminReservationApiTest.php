@@ -75,6 +75,29 @@ class AdminReservationApiTest extends TestCase
         ]);
     }
 
+    public function test_admin_can_create_reservation_without_end_time(): void
+    {
+        Room::factory()->create(['slug' => 'imeet']);
+
+        $this->postJson('/api/admin/reservations', [
+            'room_id' => 'imeet',
+            'date' => '2026-07-04',
+            'start_time' => '13:00',
+            'first_name' => 'Ana',
+            'last_name' => 'Popescu',
+            'email' => 'ANA@EXAMPLE.COM',
+            'phone' => '069123456',
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.start_time', '13:00')
+            ->assertJsonPath('data.end_time', '14:00');
+
+        $this->assertDatabaseHas('reservations', [
+            'starts_at' => '13:00',
+            'ends_at' => '14:00',
+        ]);
+    }
+
     public function test_admin_create_reservation_rejects_overlapping_booking(): void
     {
         $room = Room::factory()->create(['slug' => 'imeet']);

@@ -47,8 +47,11 @@ class BookingApiTest extends TestCase
             ->assertJsonPath('data.slots.0.start', '09:00')
             ->assertJsonPath('data.slots.0.end', '10:00')
             ->assertJsonPath('data.slots.0.available', false)
-            ->assertJsonPath('data.slots.1.start', '10:00')
-            ->assertJsonPath('data.slots.1.available', true);
+            ->assertJsonPath('data.slots.1.start', '09:30')
+            ->assertJsonPath('data.slots.1.end', '10:30')
+            ->assertJsonPath('data.slots.1.available', false)
+            ->assertJsonPath('data.slots.2.start', '10:00')
+            ->assertJsonPath('data.slots.2.available', true);
     }
 
     public function test_public_reservation_endpoint_creates_a_reservation(): void
@@ -80,6 +83,51 @@ class BookingApiTest extends TestCase
             'starts_at' => '09:00',
             'ends_at' => '10:00',
         ]);
+    }
+
+    public function test_public_reservation_endpoint_accepts_half_hour_start_times(): void
+    {
+        Room::factory()->create(['slug' => 'imeet']);
+
+        $this->postJson('/api/reservations', [
+            'room_id' => 'imeet',
+            'date' => '2026-06-10',
+            'start_time' => '09:30',
+            'first_name' => 'Ana',
+            'last_name' => 'Popescu',
+            'email' => 'ana@example.com',
+            'phone' => '+373 600 00 000',
+        ])
+            ->assertCreated()
+            ->assertJsonPath('data.start_time', '09:30')
+            ->assertJsonPath('data.end_time', '10:30');
+
+        $this->assertDatabaseHas('reservations', [
+            'starts_at' => '09:30',
+            'ends_at' => '10:30',
+        ]);
+    }
+
+    public function test_public_reservation_endpoint_rejects_overlapping_half_hour_booking(): void
+    {
+        $room = Room::factory()->create(['slug' => 'imeet']);
+        Reservation::factory()->for($room)->create([
+            'reserved_date' => '2026-06-10',
+            'starts_at' => '09:00',
+            'ends_at' => '10:00',
+        ]);
+
+        $this->postJson('/api/reservations', [
+            'room_id' => 'imeet',
+            'date' => '2026-06-10',
+            'start_time' => '09:30',
+            'first_name' => 'Ana',
+            'last_name' => 'Popescu',
+            'email' => 'ana@example.com',
+            'phone' => '+373 600 00 000',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonPath('message', 'Selected room is already reserved for this time slot.');
     }
 
     public function test_public_reservation_endpoint_rejects_double_booking(): void

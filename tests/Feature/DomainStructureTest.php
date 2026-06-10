@@ -61,7 +61,7 @@ class DomainStructureTest extends TestCase
         $this->assertSame('cancelled', ReservationStatus::Cancelled->value);
     }
 
-    public function test_booking_slot_rules_use_one_hour_slots_between_09_and_21(): void
+    public function test_booking_slot_rules_use_one_hour_slots_every_thirty_minutes_between_09_and_21(): void
     {
         $rules = new BookingSlotRules();
 
@@ -70,18 +70,29 @@ class DomainStructureTest extends TestCase
         $this->assertSame(60, $rules->slotDurationMinutes());
         $this->assertSame([
             '09:00',
+            '09:30',
             '10:00',
+            '10:30',
             '11:00',
+            '11:30',
             '12:00',
+            '12:30',
             '13:00',
+            '13:30',
             '14:00',
+            '14:30',
             '15:00',
+            '15:30',
             '16:00',
+            '16:30',
             '17:00',
+            '17:30',
             '18:00',
+            '18:30',
             '19:00',
+            '19:30',
             '20:00',
         ], $rules->slotStarts());
+        $this->assertSame('10:30', $rules->endForStart('09:30'));
     }
 }
-

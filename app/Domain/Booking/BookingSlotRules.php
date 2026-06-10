@@ -21,9 +21,10 @@ class BookingSlotRules
 
     public function endForStart(string $start): string
     {
-        $hour = (int) substr($start, 0, 2);
+        [$hour, $minute] = array_map('intval', explode(':', $start));
+        $endMinutes = ($hour * 60) + $minute + $this->slotDurationMinutes();
 
-        return sprintf('%02d:00', $hour + 1);
+        return sprintf('%02d:%02d', intdiv($endMinutes, 60), $endMinutes % 60);
     }
 
     /**
@@ -31,19 +32,21 @@ class BookingSlotRules
      */
     public function slotStarts(): array
     {
-        return [
-            '09:00',
-            '10:00',
-            '11:00',
-            '12:00',
-            '13:00',
-            '14:00',
-            '15:00',
-            '16:00',
-            '17:00',
-            '18:00',
-            '19:00',
-            '20:00',
-        ];
+        $starts = [];
+        $startMinutes = $this->timeToMinutes($this->firstSlotStart());
+        $lastStartMinutes = $this->timeToMinutes($this->lastSlotEnd()) - $this->slotDurationMinutes();
+
+        for ($minutes = $startMinutes; $minutes <= $lastStartMinutes; $minutes += 30) {
+            $starts[] = sprintf('%02d:%02d', intdiv($minutes, 60), $minutes % 60);
+        }
+
+        return $starts;
+    }
+
+    private function timeToMinutes(string $time): int
+    {
+        [$hour, $minute] = array_map('intval', explode(':', $time));
+
+        return ($hour * 60) + $minute;
     }
 }

@@ -31,21 +31,30 @@ class PublicBookingController extends Controller
             'date' => ['required', 'date_format:Y-m-d'],
         ]);
 
-        $reservedStarts = Reservation::query()
+        $reservations = Reservation::query()
             ->where('room_id', $room->id)
             ->whereDate('reserved_date', $validated['date'])
             ->where('status', '!=', ReservationStatus::Cancelled)
-            ->pluck('starts_at')
-            ->map(fn (string $time): string => $this->formatTime($time))
-            ->all();
+            ->get(['starts_at', 'ends_at']);
 
         $slots = collect($slotRules->slotStarts())
-            ->map(fn (string $start): array => [
-                'start' => $start,
-                'end' => $slotRules->endForStart($start),
-                'label' => $start.' - '.$slotRules->endForStart($start),
-                'available' => ! in_array($start, $reservedStarts, true),
-            ])
+            ->map(function (string $start) use ($reservations, $slotRules): array {
+                $end = $slotRules->endForStart($start);
+
+                return [
+                    'start' => $start,
+                    'end' => $end,
+                    'label' => $start.' - '.$end,
+                    'available' => ! $reservations->contains(
+                        fn (Reservation $reservation): bool => $this->overlaps(
+                            $start,
+                            $end,
+                            $this->formatTime($reservation->starts_at),
+                            $this->formatTime($reservation->ends_at),
+                        ),
+                    ),
+                ];
+            })
             ->values();
 
         return new JsonResponse([
@@ -75,11 +84,13 @@ class PublicBookingController extends Controller
             ->where('is_active', true)
             ->firstOrFail();
 
+        $endTime = $slotRules->endForStart($validated['start_time']);
         $alreadyReserved = Reservation::query()
             ->where('room_id', $room->id)
             ->whereDate('reserved_date', $validated['date'])
             ->where('status', '!=', ReservationStatus::Cancelled)
-            ->where('starts_at', $validated['start_time'])
+            ->where('starts_at', '<', $endTime)
+            ->where('ends_at', '>', $validated['start_time'])
             ->exists();
 
         if ($alreadyReserved) {
@@ -102,7 +113,7 @@ class PublicBookingController extends Controller
 
         $reservation->fill([
             'status' => ReservationStatus::Confirmed,
-            'ends_at' => $slotRules->endForStart($validated['start_time']),
+            'ends_at' => $endTime,
             'first_name' => trim($validated['first_name']),
             'last_name' => trim($validated['last_name']),
             'email' => str($validated['email'])->lower()->toString(),
@@ -145,5 +156,10 @@ class PublicBookingController extends Controller
     private function formatTime(string $time): string
     {
         return substr($time, 0, 5);
+    }
+
+    private function overlaps(string $start, string $end, string $reservationStart, string $reservationEnd): bool
+    {
+        return $reservationStart < $end && $reservationEnd > $start;
     }
 }

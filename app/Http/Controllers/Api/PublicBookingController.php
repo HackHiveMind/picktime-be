@@ -132,6 +132,10 @@ class PublicBookingController extends Controller
             'id' => $room->slug,
             'name' => $room->name,
             'capacity' => $room->capacity,
+            'business_id' => $room->business_id,
+            'location' => $room->location,
+            'amenities' => $room->amenities ?? [],
+            'accent' => $room->accent,
         ];
     }
 

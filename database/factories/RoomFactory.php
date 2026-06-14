@@ -23,6 +23,10 @@ class RoomFactory extends Factory
             'name' => str($name)->title()->toString(),
             'slug' => str($name)->slug()->toString(),
             'capacity' => fake()->numberBetween(4, 24),
+            'business_id' => 'chisinau',
+            'location' => 'iHUB Chisinau',
+            'amenities' => [],
+            'accent' => '#f7de05',
             'is_active' => true,
         ];
     }

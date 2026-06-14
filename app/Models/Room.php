@@ -15,6 +15,10 @@ class Room extends Model
         'name',
         'slug',
         'capacity',
+        'business_id',
+        'location',
+        'amenities',
+        'accent',
         'is_active',
     ];
 
@@ -22,6 +26,7 @@ class Room extends Model
     {
         return [
             'capacity' => 'integer',
+            'amenities' => 'array',
             'is_active' => 'boolean',
         ];
     }

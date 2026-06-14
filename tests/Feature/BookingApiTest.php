@@ -27,7 +27,8 @@ class BookingApiTest extends TestCase
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', 'imeet')
             ->assertJsonPath('data.0.name', 'iMEET Room')
-            ->assertJsonPath('data.0.capacity', 8);
+            ->assertJsonPath('data.0.capacity', 8)
+            ->assertJsonPath('data.0.business_id', 'chisinau');
     }
 
     public function test_availability_endpoint_marks_existing_reservations_unavailable(): void

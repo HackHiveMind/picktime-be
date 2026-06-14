@@ -21,21 +21,37 @@ class DatabaseSeeder extends Seeder
                 'slug' => 'imeet',
                 'name' => 'iMEET Room',
                 'capacity' => 8,
+                'business_id' => 'chisinau',
+                'location' => 'iHUB Chisinau',
+                'amenities' => ['TV', 'Whiteboard', 'Video call', 'Cafea/ceai'],
+                'accent' => '#74bd45',
             ],
             [
                 'slug' => 'loft',
                 'name' => 'Loft Room',
                 'capacity' => 8,
+                'business_id' => 'yellow',
+                'location' => 'iHUB Yellow',
+                'amenities' => ['Monitor', 'Whiteboard', 'Internet rapid', 'Bucatarie'],
+                'accent' => '#f7de05',
             ],
             [
                 'slug' => 'green-conference',
                 'name' => 'Green Conference Room',
                 'capacity' => 20,
+                'business_id' => 'wfp-conference',
+                'location' => 'iHUB - WFP Conference',
+                'amenities' => ['Ecran 100 inch', 'Sistem audio/video', 'Flipchart', 'Suport IT'],
+                'accent' => '#74bd45',
             ],
             [
                 'slug' => 'yellow-conference',
                 'name' => 'Yellow Conference Room',
                 'capacity' => 30,
+                'business_id' => 'yellow-conference',
+                'location' => 'iHUB Yellow Conference',
+                'amenities' => ['Proiector', 'Internet', 'Flipchart', 'Suport IT'],
+                'accent' => '#f7de05',
             ],
         ];
 
@@ -45,6 +61,10 @@ class DatabaseSeeder extends Seeder
                 [
                     'name' => $room['name'],
                     'capacity' => $room['capacity'],
+                    'business_id' => $room['business_id'],
+                    'location' => $room['location'],
+                    'amenities' => $room['amenities'],
+                    'accent' => $room['accent'],
                     'is_active' => true,
                 ],
             );

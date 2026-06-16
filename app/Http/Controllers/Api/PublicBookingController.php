@@ -185,9 +185,8 @@ class PublicBookingController extends Controller
 
     private function shouldValidateDeliverableEmailDomain(): bool
     {
-        return filled(config('services.resend.key'))
-            && filled(config('services.resend.from'))
-            && filled(config('services.resend.admin_to'));
+        return filled(config('mail.from.address'))
+            && filled(config('services.booking_email.admin_to'));
     }
 
     private function overlaps(string $start, string $end, string $reservationStart, string $reservationEnd): bool

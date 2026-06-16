@@ -25,6 +25,11 @@ return [
         'logo_url' => env('RESEND_LOGO_URL', 'https://pictime-ihub-booking-fe.vercel.app/ihub-logo.png'),
     ],
 
+    'booking_email' => [
+        'admin_to' => env('BOOKING_ADMIN_EMAIL', env('RESEND_ADMIN_EMAIL')),
+        'logo_url' => env('BOOKING_EMAIL_LOGO_URL', env('RESEND_LOGO_URL', 'https://pictime-ihub-booking-fe.vercel.app/ihub-logo.png')),
+    ],
+
     'ses' => [
         'key' => env('AWS_ACCESS_KEY_ID'),
         'secret' => env('AWS_SECRET_ACCESS_KEY'),

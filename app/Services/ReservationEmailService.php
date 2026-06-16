@@ -2,9 +2,10 @@
 
 namespace App\Services;
 
+use App\Mail\BookingNotificationMail;
 use App\Models\Reservation;
-use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Throwable;
 
 class ReservationEmailService
@@ -18,22 +19,10 @@ class ReservationEmailService
         $reservation->loadMissing('room');
 
         try {
-            $response = Http::withToken((string) config('services.resend.key'))
-                ->acceptJson()
-                ->post('https://api.resend.com/emails/batch', [
-                    $this->guestEmailPayload($reservation),
-                    $this->adminEmailPayload($reservation),
-                ]);
-
-            if ($response->failed()) {
-                Log::warning('Resend booking email request failed.', [
-                    'reservation_id' => $reservation->id,
-                    'status' => $response->status(),
-                    'body' => $response->body(),
-                ]);
-            }
+            Mail::to($reservation->email)->send($this->guestEmail($reservation));
+            Mail::to((string) config('services.booking_email.admin_to'))->send($this->adminEmail($reservation));
         } catch (Throwable $exception) {
-            Log::warning('Resend booking email request threw an exception.', [
+            Log::warning('Booking email request failed.', [
                 'reservation_id' => $reservation->id,
                 'message' => $exception->getMessage(),
             ]);
@@ -42,31 +31,26 @@ class ReservationEmailService
 
     private function isConfigured(): bool
     {
-        return filled(config('services.resend.key'))
-            && filled(config('services.resend.from'))
-            && filled(config('services.resend.admin_to'));
+        return filled(config('mail.from.address'))
+            && filled(config('services.booking_email.admin_to'));
     }
 
-    private function guestEmailPayload(Reservation $reservation): array
+    private function guestEmail(Reservation $reservation): BookingNotificationMail
     {
-        return [
-            'from' => config('services.resend.from'),
-            'to' => $reservation->email,
-            'subject' => 'Rezervarea ta iHUB este confirmata',
-            'html' => $this->guestHtml($reservation),
-            'text' => $this->guestText($reservation),
-        ];
+        return new BookingNotificationMail(
+            subjectLine: 'Rezervarea ta iHUB este confirmata',
+            htmlBody: $this->guestHtml($reservation),
+            textBody: $this->guestText($reservation),
+        );
     }
 
-    private function adminEmailPayload(Reservation $reservation): array
+    private function adminEmail(Reservation $reservation): BookingNotificationMail
     {
-        return [
-            'from' => config('services.resend.from'),
-            'to' => config('services.resend.admin_to'),
-            'subject' => 'Rezervare noua iHUB',
-            'html' => $this->adminHtml($reservation),
-            'text' => $this->adminText($reservation),
-        ];
+        return new BookingNotificationMail(
+            subjectLine: 'Rezervare noua iHUB',
+            htmlBody: $this->adminHtml($reservation),
+            textBody: $this->adminText($reservation),
+        );
     }
 
     private function guestHtml(Reservation $reservation): string
@@ -125,7 +109,7 @@ class ReservationEmailService
 
     private function brandedHtml(string $title, string $eyebrow, string $intro, string $detailsHtml, string $footer): string
     {
-        $logoUrl = e((string) config('services.resend.logo_url'));
+        $logoUrl = e((string) config('services.booking_email.logo_url'));
         $footerHtml = $footer === '' ? '' : <<<HTML
                       <tr>
                         <td style="padding:12px 32px 34px;">

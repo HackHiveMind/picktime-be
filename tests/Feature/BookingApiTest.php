@@ -3,10 +3,11 @@
 namespace Tests\Feature;
 
 use App\Enums\ReservationStatus;
+use App\Mail\BookingNotificationMail;
 use App\Models\Reservation;
 use App\Models\Room;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Mail;
 use Tests\TestCase;
 
 class BookingApiTest extends TestCase
@@ -95,21 +96,13 @@ class BookingApiTest extends TestCase
         ]);
     }
 
-    public function test_public_reservation_sends_guest_and_admin_emails_with_resend(): void
+    public function test_public_reservation_sends_guest_and_admin_emails_with_configured_mailer(): void
     {
         config([
-            'services.resend.key' => 're_test_key',
-            'services.resend.from' => 'iHUB Booking <bookings@example.com>',
-            'services.resend.admin_to' => 'admin@example.com',
+            'mail.from.address' => 'booking@ihub.test',
+            'services.booking_email.admin_to' => 'admin@example.com',
         ]);
-        Http::fake([
-            'api.resend.com/*' => Http::response([
-                'data' => [
-                    ['id' => 'guest-email-id'],
-                    ['id' => 'admin-email-id'],
-                ],
-            ]),
-        ]);
+        Mail::fake();
         Room::factory()->create([
             'name' => 'iMEET Room',
             'slug' => 'imeet',
@@ -125,46 +118,42 @@ class BookingApiTest extends TestCase
             'phone' => '+373 600 00 000',
         ])->assertCreated();
 
-        Http::assertSent(function ($request): bool {
-            $payload = $request->data();
-
-            return $request->url() === 'https://api.resend.com/emails/batch'
-                && $request->method() === 'POST'
-                && $request->hasHeader('Authorization', 'Bearer re_test_key')
-                && count($payload) === 2
-                && $payload[0]['to'] === 'ana@gmail.com'
-                && $payload[0]['from'] === 'iHUB Booking <bookings@example.com>'
-                && $payload[0]['subject'] === 'Rezervarea ta iHUB este confirmata'
-                && str_contains($payload[0]['html'], 'https://pictime-ihub-booking-fe.vercel.app/ihub-logo.png')
-                && str_contains($payload[0]['html'], '#f7de05')
-                && str_contains($payload[0]['html'], '#74bd45')
-                && str_contains($payload[0]['html'], 'Detalii rezervare')
-                && str_contains($payload[0]['html'], 'booking-detail-card')
-                && str_contains($payload[0]['html'], 'Sala: iMEET Room')
-                && str_contains($payload[0]['html'], 'Data rezervarii: 2026-06-10')
-                && str_contains($payload[0]['html'], 'Ora: 09:00 - 10:00')
-                && str_contains($payload[0]['html'], 'Multumim,<br>iHUB Chisinau.')
-                && ! str_contains($payload[0]['html'], 'Rezervarea dumneavoastra')
-                && ! str_contains($payload[0]['html'], 'Ora Europei de Est')
-                && ! str_contains($payload[0]['html'], 'dashboard')
-                && ! str_contains($payload[0]['html'], 'Rezervarea este inregistrata in sistemul iHUB')
-                && str_contains($payload[0]['html'], 'iMEET Room')
-                && $payload[1]['to'] === 'admin@example.com'
-                && $payload[1]['subject'] === 'Rezervare noua iHUB'
-                && str_contains($payload[1]['html'], 'Ana Popescu')
-                && ! str_contains($payload[1]['html'], 'dashboard')
-                && ! str_contains($payload[1]['html'], 'Rezervarea este inregistrata in sistemul iHUB');
+        Mail::assertSent(BookingNotificationMail::class, function (BookingNotificationMail $mail): bool {
+            return $mail->hasTo('ana@gmail.com')
+                && $mail->subjectLine === 'Rezervarea ta iHUB este confirmata'
+                && str_contains($mail->htmlBody, 'https://pictime-ihub-booking-fe.vercel.app/ihub-logo.png')
+                && str_contains($mail->htmlBody, '#f7de05')
+                && str_contains($mail->htmlBody, '#74bd45')
+                && str_contains($mail->htmlBody, 'Detalii rezervare')
+                && str_contains($mail->htmlBody, 'booking-detail-card')
+                && str_contains($mail->htmlBody, 'Sala: iMEET Room')
+                && str_contains($mail->htmlBody, 'Data rezervarii: 2026-06-10')
+                && str_contains($mail->htmlBody, 'Ora: 09:00 - 10:00')
+                && str_contains($mail->htmlBody, 'Multumim,<br>iHUB Chisinau.')
+                && ! str_contains($mail->htmlBody, 'Rezervarea dumneavoastra')
+                && ! str_contains($mail->htmlBody, 'Ora Europei de Est')
+                && ! str_contains($mail->htmlBody, 'dashboard')
+                && ! str_contains($mail->htmlBody, 'Rezervarea este inregistrata in sistemul iHUB');
         });
+
+        Mail::assertSent(BookingNotificationMail::class, function (BookingNotificationMail $mail): bool {
+            return $mail->hasTo('admin@example.com')
+                && $mail->subjectLine === 'Rezervare noua iHUB'
+                && str_contains($mail->htmlBody, 'Ana Popescu')
+                && ! str_contains($mail->htmlBody, 'dashboard')
+                && ! str_contains($mail->htmlBody, 'Rezervarea este inregistrata in sistemul iHUB');
+        });
+
+        Mail::assertSent(BookingNotificationMail::class, 2);
     }
 
-    public function test_public_reservation_rejects_reserved_test_email_domains_before_resend(): void
+    public function test_public_reservation_rejects_reserved_test_email_domains_before_email_send(): void
     {
         config([
-            'services.resend.key' => 're_test_key',
-            'services.resend.from' => 'iHUB Booking <bookings@example.com>',
-            'services.resend.admin_to' => 'admin@example.com',
+            'mail.from.address' => 'booking@ihub.test',
+            'services.booking_email.admin_to' => 'admin@example.com',
         ]);
-        Http::fake();
+        Mail::fake();
         Room::factory()->create(['slug' => 'imeet']);
 
         $this->postJson('/api/reservations', [
@@ -179,22 +168,19 @@ class BookingApiTest extends TestCase
             ->assertUnprocessable()
             ->assertJsonValidationErrors('email');
 
-        Http::assertNothingSent();
+        Mail::assertNothingSent();
         $this->assertDatabaseMissing('reservations', [
             'email' => 'ana@gmail.com',
         ]);
     }
 
-    public function test_public_reservation_still_succeeds_when_resend_fails(): void
+    public function test_public_reservation_still_succeeds_when_mailer_fails(): void
     {
         config([
-            'services.resend.key' => 're_test_key',
-            'services.resend.from' => 'iHUB Booking <bookings@example.com>',
-            'services.resend.admin_to' => 'admin@example.com',
+            'mail.from.address' => 'booking@ihub.test',
+            'services.booking_email.admin_to' => 'admin@example.com',
         ]);
-        Http::fake([
-            'api.resend.com/*' => Http::response(['message' => 'Rate limited'], 429),
-        ]);
+        Mail::shouldReceive('to')->andThrow(new \RuntimeException('SMTP failed'));
         Room::factory()->create(['slug' => 'imeet']);
 
         $this->postJson('/api/reservations', [
@@ -212,7 +198,6 @@ class BookingApiTest extends TestCase
             'starts_at' => '09:00',
             'ends_at' => '10:00',
         ]);
-        Http::assertSentCount(1);
     }
 
     public function test_public_reservation_endpoint_accepts_half_hour_start_times(): void

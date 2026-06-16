@@ -30,6 +30,13 @@ return [
         'logo_url' => env('BOOKING_EMAIL_LOGO_URL', env('RESEND_LOGO_URL', 'https://pictime-ihub-booking-fe.vercel.app/ihub-logo.png')),
     ],
 
+    'mailjet' => [
+        'key' => env('MAILJET_API_KEY', env('MAIL_USERNAME')),
+        'secret' => env('MAILJET_SECRET_KEY', env('MAIL_PASSWORD')),
+        'from_address' => env('MAILJET_FROM_ADDRESS', env('MAIL_FROM_ADDRESS')),
+        'from_name' => env('MAILJET_FROM_NAME', env('MAIL_FROM_NAME', 'iHUB Booking')),
+    ],
+
     'ses' => [
         'key' => env('AWS_ACCESS_KEY_ID'),
         'secret' => env('AWS_SECRET_ACCESS_KEY'),

@@ -2,10 +2,9 @@
 
 namespace App\Services;
 
-use App\Mail\BookingNotificationMail;
 use App\Models\Reservation;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Mail;
 use Throwable;
 
 class ReservationEmailService
@@ -19,8 +18,22 @@ class ReservationEmailService
         $reservation->loadMissing('room');
 
         try {
-            Mail::to($reservation->email)->send($this->guestEmail($reservation));
-            Mail::to((string) config('services.booking_email.admin_to'))->send($this->adminEmail($reservation));
+            $response = Http::withBasicAuth((string) config('services.mailjet.key'), (string) config('services.mailjet.secret'))
+                ->acceptJson()
+                ->post('https://api.mailjet.com/v3.1/send', [
+                    'Messages' => [
+                        $this->guestMessage($reservation),
+                        $this->adminMessage($reservation),
+                    ],
+                ]);
+
+            if ($response->failed()) {
+                Log::warning('Mailjet booking email request failed.', [
+                    'reservation_id' => $reservation->id,
+                    'status' => $response->status(),
+                    'body' => $response->body(),
+                ]);
+            }
         } catch (Throwable $exception) {
             Log::warning('Booking email request failed.', [
                 'reservation_id' => $reservation->id,
@@ -31,26 +44,44 @@ class ReservationEmailService
 
     private function isConfigured(): bool
     {
-        return filled(config('mail.from.address'))
+        return filled(config('services.mailjet.key'))
+            && filled(config('services.mailjet.secret'))
+            && filled(config('services.mailjet.from_address'))
             && filled(config('services.booking_email.admin_to'));
     }
 
-    private function guestEmail(Reservation $reservation): BookingNotificationMail
+    private function guestMessage(Reservation $reservation): array
     {
-        return new BookingNotificationMail(
-            subjectLine: 'Rezervarea ta iHUB este confirmata',
-            htmlBody: $this->guestHtml($reservation),
-            textBody: $this->guestText($reservation),
-        );
+        return [
+            'From' => $this->fromAddress(),
+            'To' => [
+                ['Email' => $reservation->email],
+            ],
+            'Subject' => 'Rezervarea ta iHUB este confirmata',
+            'HTMLPart' => $this->guestHtml($reservation),
+            'TextPart' => $this->guestText($reservation),
+        ];
     }
 
-    private function adminEmail(Reservation $reservation): BookingNotificationMail
+    private function adminMessage(Reservation $reservation): array
     {
-        return new BookingNotificationMail(
-            subjectLine: 'Rezervare noua iHUB',
-            htmlBody: $this->adminHtml($reservation),
-            textBody: $this->adminText($reservation),
-        );
+        return [
+            'From' => $this->fromAddress(),
+            'To' => [
+                ['Email' => (string) config('services.booking_email.admin_to')],
+            ],
+            'Subject' => 'Rezervare noua iHUB',
+            'HTMLPart' => $this->adminHtml($reservation),
+            'TextPart' => $this->adminText($reservation),
+        ];
+    }
+
+    private function fromAddress(): array
+    {
+        return [
+            'Email' => (string) config('services.mailjet.from_address'),
+            'Name' => (string) config('services.mailjet.from_name', 'iHUB Booking'),
+        ];
     }
 
     private function guestHtml(Reservation $reservation): string

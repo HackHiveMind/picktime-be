@@ -210,15 +210,15 @@ class ReservationEmailService
         $email = e($reservation->email);
         $phone = e($reservation->phone);
         $guestDetails = $includeGuest
-            ? '<p style="margin:0 0 16px;"><strong>Client:</strong> '.$guest.'<br><strong>Email:</strong> <a href="mailto:'.$email.'" style="color:#111827;text-decoration:underline;">'.$email.'</a><br><strong>Telefon:</strong> '.$phone.'</p>'
+            ? '<p style="margin:22px 0 0;color:#4b5563;"><strong>Client: '.$guest.'</strong><br><strong>Email:</strong> <a href="mailto:'.$email.'" style="color:#111827;text-decoration:underline;">'.$email.'</a><br><strong>Telefon:</strong> '.$phone.'</p>'
             : '';
 
         return <<<HTML
-            {$guestDetails}
             <p style="margin:0 0 10px;"><strong>Sala: {$room}</strong></p>
             <p style="margin:0 0 10px;"><strong>Data rezervarii: {$date}</strong></p>
             <p style="margin:0 0 24px;"><strong>Ora: {$time}</strong></p>
             <p style="margin:0;">Multumim,<br>iHUB Chisinau.</p>
+            {$guestDetails}
         HTML;
     }
 }

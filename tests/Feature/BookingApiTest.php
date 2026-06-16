@@ -158,6 +158,10 @@ class BookingApiTest extends TestCase
                 && ($admin['To'][0]['Email'] ?? null) === 'admin@example.com'
                 && ($admin['Subject'] ?? null) === 'Rezervare noua iHUB'
                 && str_contains($adminHtml, 'Ana Popescu')
+                && strpos($adminHtml, 'Sala: iMEET Room') < strpos($adminHtml, 'Client: Ana Popescu')
+                && str_contains($adminHtml, 'Data rezervarii: 2026-06-10')
+                && str_contains($adminHtml, 'Ora: 09:00 - 10:00')
+                && str_contains($adminHtml, 'Multumim,<br>iHUB Chisinau.')
                 && ! str_contains($adminHtml, 'dashboard')
                 && ! str_contains($adminHtml, 'Rezervarea este inregistrata in sistemul iHUB');
         });

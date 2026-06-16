@@ -142,7 +142,7 @@ class BookingApiTest extends TestCase
                 && ($guest['From']['Email'] ?? null) === 'booking@ihub.test'
                 && ($guest['To'][0]['Email'] ?? null) === 'ana@gmail.com'
                 && ($guest['Subject'] ?? null) === 'Rezervarea ta iHUB este confirmata'
-                && str_contains($guestHtml, 'https://pictime-ihub-booking-fe.vercel.app/ihub-logo.png')
+                && str_contains($guestHtml, 'data:image/png;base64,')
                 && str_contains($guestHtml, '#f7de05')
                 && str_contains($guestHtml, '#74bd45')
                 && str_contains($guestHtml, 'Detalii rezervare')

@@ -140,7 +140,7 @@ class ReservationEmailService
 
     private function brandedHtml(string $title, string $eyebrow, string $intro, string $detailsHtml, string $footer): string
     {
-        $logoUrl = e((string) config('services.booking_email.logo_url'));
+        $logoUrl = e($this->logoSource());
         $footerHtml = $footer === '' ? '' : <<<HTML
                       <tr>
                         <td style="padding:12px 32px 34px;">
@@ -220,5 +220,16 @@ class ReservationEmailService
             <p style="margin:0;">Multumim,<br>iHUB Chisinau.</p>
             {$guestDetails}
         HTML;
+    }
+
+    private function logoSource(): string
+    {
+        $logoPath = public_path('ihub-logo.png');
+
+        if (is_file($logoPath)) {
+            return 'data:image/png;base64,'.base64_encode((string) file_get_contents($logoPath));
+        }
+
+        return (string) config('services.booking_email.logo_url');
     }
 }

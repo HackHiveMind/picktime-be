@@ -30,14 +30,24 @@ class RoomSeederTest extends TestCase
             'slug' => 'green-conference',
             'name' => 'Green Conference Room',
             'capacity' => 20,
+            'business_id' => 'chisinau',
+            'location' => 'iHUB Chisinau',
             'is_active' => true,
         ]);
         $this->assertDatabaseHas('rooms', [
             'slug' => 'yellow-conference',
             'name' => 'Yellow Conference Room',
             'capacity' => 30,
+            'business_id' => 'yellow',
+            'location' => 'iHUB Yellow',
             'is_active' => true,
+        ]);
+
+        $this->assertDatabaseMissing('rooms', [
+            'business_id' => 'wfp-conference',
+        ]);
+        $this->assertDatabaseMissing('rooms', [
+            'business_id' => 'yellow-conference',
         ]);
     }
 }
-

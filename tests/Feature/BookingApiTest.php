@@ -31,6 +31,14 @@ class BookingApiTest extends TestCase
             ->assertJsonPath('data.0.business_id', 'chisinau');
     }
 
+    public function test_public_booking_endpoints_remain_open_without_login(): void
+    {
+        $room = Room::factory()->create(['slug' => 'imeet']);
+
+        $this->getJson('/api/rooms')->assertOk();
+        $this->getJson("/api/rooms/{$room->slug}/availability?date=2026-07-04")->assertOk();
+    }
+
     public function test_availability_endpoint_marks_existing_reservations_unavailable(): void
     {
         $room = Room::factory()->create(['slug' => 'imeet']);

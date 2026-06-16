@@ -54,6 +54,8 @@ return [
 
     'url' => env('APP_URL', 'http://localhost'),
 
+    'admin_dashboard_url' => env('ADMIN_DASHBOARD_URL', '/admin'),
+
     /*
     |--------------------------------------------------------------------------
     | Application Timezone

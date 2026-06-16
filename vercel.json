@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "installCommand": "composer install --no-dev --prefer-dist --optimize-autoloader",
+  "installCommand": "npm install && npm run build",
   "buildCommand": "",
   "functions": {
     "api/index.php": {
@@ -8,6 +8,10 @@
     }
   },
   "routes": [
+    {
+      "src": "/build/(.*)",
+      "dest": "/build/$1"
+    },
     {
       "src": "/(.*)",
       "dest": "/api/index.php"

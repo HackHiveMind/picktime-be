@@ -22,6 +22,7 @@ return [
         'key' => env('RESEND_API_KEY'),
         'from' => env('RESEND_FROM_ADDRESS'),
         'admin_to' => env('RESEND_ADMIN_EMAIL'),
+        'logo_url' => env('RESEND_LOGO_URL', 'https://pictime-ihub-booking-fe.vercel.app/ihub-logo.png'),
     ],
 
     'ses' => [

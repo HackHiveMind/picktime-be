@@ -78,7 +78,22 @@ class PublicBookingController extends Controller
             'start_time' => ['required', Rule::in($slotRules->slotStarts())],
             'first_name' => ['required', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255'],
+            'email' => [
+                'required',
+                'email',
+                'max:255',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    if (! $this->shouldValidateDeliverableEmailDomain()) {
+                        return;
+                    }
+
+                    $domain = str((string) $value)->afterLast('@')->lower()->toString();
+
+                    if (in_array($domain, ['example.com', 'example.net', 'example.org', 'test.com'], true)) {
+                        $fail('Use a real email address so we can send the booking confirmation.');
+                    }
+                },
+            ],
             'phone' => ['required', 'string', 'max:255'],
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
@@ -166,6 +181,13 @@ class PublicBookingController extends Controller
     private function formatTime(string $time): string
     {
         return substr($time, 0, 5);
+    }
+
+    private function shouldValidateDeliverableEmailDomain(): bool
+    {
+        return filled(config('services.resend.key'))
+            && filled(config('services.resend.from'))
+            && filled(config('services.resend.admin_to'));
     }
 
     private function overlaps(string $start, string $end, string $reservationStart, string $reservationEnd): bool

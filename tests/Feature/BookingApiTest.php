@@ -74,7 +74,7 @@ class BookingApiTest extends TestCase
             'start_time' => '09:00',
             'first_name' => 'Ana',
             'last_name' => 'Popescu',
-            'email' => 'Ana@Example.com',
+            'email' => 'Ana@Gmail.com',
             'phone' => '+373 600 00 000',
             'notes' => 'Project meeting',
         ])
@@ -83,13 +83,13 @@ class BookingApiTest extends TestCase
             ->assertJsonPath('data.date', '2026-06-10')
             ->assertJsonPath('data.start_time', '09:00')
             ->assertJsonPath('data.end_time', '10:00')
-            ->assertJsonPath('data.email', 'ana@example.com')
+            ->assertJsonPath('data.email', 'ana@gmail.com')
             ->assertJsonPath('data.status', 'confirmed');
 
         $this->assertDatabaseHas('reservations', [
             'first_name' => 'Ana',
             'last_name' => 'Popescu',
-            'email' => 'ana@example.com',
+            'email' => 'ana@gmail.com',
             'starts_at' => '09:00',
             'ends_at' => '10:00',
         ]);
@@ -121,7 +121,7 @@ class BookingApiTest extends TestCase
             'start_time' => '09:00',
             'first_name' => 'Ana',
             'last_name' => 'Popescu',
-            'email' => 'Ana@Example.com',
+            'email' => 'Ana@Gmail.com',
             'phone' => '+373 600 00 000',
         ])->assertCreated();
 
@@ -132,14 +132,45 @@ class BookingApiTest extends TestCase
                 && $request->method() === 'POST'
                 && $request->hasHeader('Authorization', 'Bearer re_test_key')
                 && count($payload) === 2
-                && $payload[0]['to'] === 'ana@example.com'
+                && $payload[0]['to'] === 'ana@gmail.com'
                 && $payload[0]['from'] === 'iHUB Booking <bookings@example.com>'
                 && $payload[0]['subject'] === 'Rezervarea ta iHUB este confirmata'
+                && str_contains($payload[0]['html'], 'https://pictime-ihub-booking-fe.vercel.app/ihub-logo.png')
+                && str_contains($payload[0]['html'], '#f7de05')
+                && str_contains($payload[0]['html'], '#74bd45')
                 && str_contains($payload[0]['html'], 'iMEET Room')
                 && $payload[1]['to'] === 'admin@example.com'
                 && $payload[1]['subject'] === 'Rezervare noua iHUB'
                 && str_contains($payload[1]['html'], 'Ana Popescu');
         });
+    }
+
+    public function test_public_reservation_rejects_reserved_test_email_domains_before_resend(): void
+    {
+        config([
+            'services.resend.key' => 're_test_key',
+            'services.resend.from' => 'iHUB Booking <bookings@example.com>',
+            'services.resend.admin_to' => 'admin@example.com',
+        ]);
+        Http::fake();
+        Room::factory()->create(['slug' => 'imeet']);
+
+        $this->postJson('/api/reservations', [
+            'room_id' => 'imeet',
+            'date' => '2026-06-10',
+            'start_time' => '09:00',
+            'first_name' => 'Ana',
+            'last_name' => 'Popescu',
+            'email' => 'ana@example.com',
+            'phone' => '+373 600 00 000',
+        ])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('email');
+
+        Http::assertNothingSent();
+        $this->assertDatabaseMissing('reservations', [
+            'email' => 'ana@gmail.com',
+        ]);
     }
 
     public function test_public_reservation_still_succeeds_when_resend_fails(): void
@@ -160,12 +191,12 @@ class BookingApiTest extends TestCase
             'start_time' => '09:00',
             'first_name' => 'Ana',
             'last_name' => 'Popescu',
-            'email' => 'ana@example.com',
+            'email' => 'ana@gmail.com',
             'phone' => '+373 600 00 000',
         ])->assertCreated();
 
         $this->assertDatabaseHas('reservations', [
-            'email' => 'ana@example.com',
+            'email' => 'ana@gmail.com',
             'starts_at' => '09:00',
             'ends_at' => '10:00',
         ]);
@@ -182,7 +213,7 @@ class BookingApiTest extends TestCase
             'start_time' => '09:30',
             'first_name' => 'Ana',
             'last_name' => 'Popescu',
-            'email' => 'ana@example.com',
+            'email' => 'ana@gmail.com',
             'phone' => '+373 600 00 000',
         ])
             ->assertCreated()
@@ -210,7 +241,7 @@ class BookingApiTest extends TestCase
             'start_time' => '09:30',
             'first_name' => 'Ana',
             'last_name' => 'Popescu',
-            'email' => 'ana@example.com',
+            'email' => 'ana@gmail.com',
             'phone' => '+373 600 00 000',
         ])
             ->assertUnprocessable()
@@ -232,7 +263,7 @@ class BookingApiTest extends TestCase
             'start_time' => '09:00',
             'first_name' => 'Ana',
             'last_name' => 'Popescu',
-            'email' => 'ana@example.com',
+            'email' => 'ana@gmail.com',
             'phone' => '+373 600 00 000',
         ])
             ->assertUnprocessable()
@@ -259,19 +290,19 @@ class BookingApiTest extends TestCase
             'start_time' => '09:00',
             'first_name' => 'Ana',
             'last_name' => 'Popescu',
-            'email' => 'ana@example.com',
+            'email' => 'ana@gmail.com',
             'phone' => '+373 600 00 000',
         ])
             ->assertCreated()
             ->assertJsonPath('data.id', (string) $reservation->id)
             ->assertJsonPath('data.status', 'confirmed')
-            ->assertJsonPath('data.email', 'ana@example.com');
+            ->assertJsonPath('data.email', 'ana@gmail.com');
 
         $this->assertDatabaseCount('reservations', 1);
         $this->assertDatabaseHas('reservations', [
             'id' => $reservation->id,
             'status' => 'confirmed',
-            'email' => 'ana@example.com',
+            'email' => 'ana@gmail.com',
         ]);
     }
 
@@ -284,7 +315,7 @@ class BookingApiTest extends TestCase
             'date' => '2026-06-10',
             'first_name' => 'Ana',
             'last_name' => 'Popescu',
-            'email' => 'ana@example.com',
+            'email' => 'ana@gmail.com',
             'phone' => '+373 600 00 000',
         ])
             ->assertUnprocessable()

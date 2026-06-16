@@ -72,45 +72,25 @@ class ReservationEmailService
     private function guestHtml(Reservation $reservation): string
     {
         $name = e($reservation->first_name);
-        $room = e($reservation->room->name);
-        $date = e($reservation->reserved_date->format('Y-m-d'));
-        $time = e($this->timeRange($reservation));
+        $location = e($reservation->room->location ?? 'iHUB Moldova');
 
         return $this->brandedHtml(
             title: 'Rezervarea ta este confirmata',
             eyebrow: 'Booking confirmat',
-            intro: "Buna, {$name}. Am confirmat rezervarea ta la iHUB Moldova.",
-            rows: [
-                'Data' => $date,
-                'Ora' => $time,
-                'Sala' => $room,
-            ],
+            intro: "Salut {$name},<br><br>Rezervarea dumneavoastra (ID: {$reservation->id}) a fost confirmata cu {$location}. Iata detaliile rezervarii dumneavoastra:",
+            detailsHtml: $this->confirmationDetailsHtml($reservation, includeGuest: false),
             footer: 'Te asteptam la iHUB. Daca ai nevoie de modificari, contacteaza echipa iHUB Moldova.'
         );
     }
 
     private function adminHtml(Reservation $reservation): string
     {
-        $guest = e($reservation->first_name.' '.$reservation->last_name);
-        $room = e($reservation->room->name);
-        $date = e($reservation->reserved_date->format('Y-m-d'));
-        $time = e($this->timeRange($reservation));
-        $email = e($reservation->email);
-        $phone = e($reservation->phone);
-
         return $this->brandedHtml(
             title: 'Rezervare noua',
             eyebrow: 'Admin notification',
-            intro: 'A fost creata o rezervare noua in calendarul iHUB.',
-            rows: [
-                'Client' => $guest,
-                'Sala' => $room,
-                'Data' => $date,
-                'Ora' => $time,
-                'Email' => '<a href="mailto:'.$email.'" style="color:#111827;text-decoration:underline;">'.$email.'</a>',
-                'Telefon' => $phone,
-            ],
-            footer: 'Rezervarea este inregistrata in sistemul iHUB.'
+            intro: 'Salut Receptie iHUB,<br><br>A fost creata o rezervare noua. Iata detaliile rezervarii:',
+            detailsHtml: $this->confirmationDetailsHtml($reservation, includeGuest: true),
+            footer: ''
         );
     }
 
@@ -144,12 +124,16 @@ class ReservationEmailService
         return substr($reservation->starts_at, 0, 5).' - '.substr($reservation->ends_at, 0, 5);
     }
 
-    private function brandedHtml(string $title, string $eyebrow, string $intro, array $rows, string $footer): string
+    private function brandedHtml(string $title, string $eyebrow, string $intro, string $detailsHtml, string $footer): string
     {
         $logoUrl = e((string) config('services.resend.logo_url'));
-        $detailsRows = collect($rows)
-            ->map(fn (string $value, string $label): string => $this->detailRow($label, $value))
-            ->implode('');
+        $footerHtml = $footer === '' ? '' : <<<HTML
+                      <tr>
+                        <td style="padding:12px 32px 34px;">
+                          <div style="border-left:5px solid #74bd45;background:#f0f9ec;border-radius:10px;padding:14px 16px;color:#183b12;font-size:14px;line-height:1.55;">{$footer}</div>
+                        </td>
+                      </tr>
+        HTML;
 
         return <<<HTML
             <!doctype html>
@@ -183,16 +167,12 @@ class ReservationEmailService
                       <tr>
                         <td style="padding:8px 32px 14px;">
                           <p style="margin:0 0 12px;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#6b7280;">Detalii rezervare</p>
-                          <table class="booking-detail-card" role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:separate;border-spacing:0;background:#fbfbf8;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
-                            {$detailsRows}
-                          </table>
+                          <div class="booking-detail-card" style="background:#fbfbf8;border:1px solid #e5e7eb;border-radius:14px;padding:22px 24px;color:#111827;font-size:15px;line-height:1.65;">
+                            {$detailsHtml}
+                          </div>
                         </td>
                       </tr>
-                      <tr>
-                        <td style="padding:12px 32px 34px;">
-                          <div style="border-left:5px solid #74bd45;background:#f0f9ec;border-radius:10px;padding:14px 16px;color:#183b12;font-size:14px;line-height:1.55;">{$footer}</div>
-                        </td>
-                      </tr>
+                      {$footerHtml}
                       <tr>
                         <td style="background:#050505;padding:18px 32px;color:#d1d5db;font-size:12px;line-height:1.5;">
                           iHUB Moldova · Meeting room booking
@@ -207,15 +187,26 @@ class ReservationEmailService
         HTML;
     }
 
-    private function detailRow(string $label, string $value): string
+    private function confirmationDetailsHtml(Reservation $reservation, bool $includeGuest): string
     {
-        $label = e($label);
+        $room = e($reservation->room->name);
+        $date = e($reservation->reserved_date->format('Y-m-d'));
+        $time = e($this->timeRange($reservation));
+        $location = e($reservation->room->location ?? 'iHUB Moldova');
+        $guest = e($reservation->first_name.' '.$reservation->last_name);
+        $email = e($reservation->email);
+        $phone = e($reservation->phone);
+        $guestDetails = $includeGuest
+            ? '<p style="margin:0 0 16px;"><strong>Client:</strong> '.$guest.'<br><strong>Email:</strong> <a href="mailto:'.$email.'" style="color:#111827;text-decoration:underline;">'.$email.'</a><br><strong>Telefon:</strong> '.$phone.'</p>'
+            : '';
 
         return <<<HTML
-            <tr>
-              <td style="width:36%;padding:17px 18px;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;">{$label}</td>
-              <td style="padding:17px 18px;border-bottom:1px solid #e5e7eb;color:#111827;font-size:16px;font-weight:800;">{$value}</td>
-            </tr>
+            {$guestDetails}
+            <p style="margin:0 0 10px;font-weight:800;font-style:italic;">Rezervati o sala de sedinte {$room}</p>
+            <p style="margin:0 0 12px;font-weight:800;font-style:italic;">{$date}, {$time} UTC +03:00, Ora Europei de Est</p>
+            <p style="margin:0 0 8px;font-style:italic;">{$location}</p>
+            <p style="margin:0 0 22px;font-style:italic;">Chisinau</p>
+            <p style="margin:0;">Multumesc,<br>iHUB Chisinau.</p>
         HTML;
     }
 }

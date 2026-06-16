@@ -11,8 +11,6 @@ use Illuminate\Validation\Rule;
 class AdminRoomController extends Controller
 {
     private const BUSINESS_IDS = [
-        'yellow-conference',
-        'wfp-conference',
         'chisinau',
         'yellow',
     ];

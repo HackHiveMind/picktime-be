@@ -5,12 +5,29 @@ namespace Tests\Feature;
 use App\Enums\ReservationStatus;
 use App\Models\Reservation;
 use App\Models\Room;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Auth;
 use Tests\TestCase;
 
 class AdminReservationApiTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->actingAs(User::factory()->create());
+    }
+
+    public function test_admin_reservations_require_authentication(): void
+    {
+        Auth::logout();
+
+        $this->getJson('/api/admin/reservations')
+            ->assertUnauthorized();
+    }
 
     public function test_admin_can_list_reservations(): void
     {

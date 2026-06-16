@@ -3,12 +3,29 @@
 namespace Tests\Feature;
 
 use App\Models\Room;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Auth;
 use Tests\TestCase;
 
 class AdminRoomApiTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->actingAs(User::factory()->create());
+    }
+
+    public function test_admin_rooms_require_authentication(): void
+    {
+        Auth::logout();
+
+        $this->getJson('/api/admin/rooms')
+            ->assertUnauthorized();
+    }
 
     public function test_admin_can_list_rooms_with_business_metadata(): void
     {
@@ -54,7 +71,31 @@ class AdminRoomApiTest extends TestCase
         ]);
     }
 
-    public function test_admin_can_move_a_room_to_another_business(): void
+    public function test_admin_can_move_a_room_to_yellow_business(): void
+    {
+        Room::factory()->create([
+            'slug' => 'imeet',
+            'business_id' => 'chisinau',
+            'location' => 'iHUB Chisinau',
+        ]);
+
+        $this->putJson('/api/admin/rooms/imeet', [
+            'business_id' => 'yellow',
+            'location' => 'iHUB Yellow',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.id', 'imeet')
+            ->assertJsonPath('data.business_id', 'yellow')
+            ->assertJsonPath('data.location', 'iHUB Yellow');
+
+        $this->assertDatabaseHas('rooms', [
+            'slug' => 'imeet',
+            'business_id' => 'yellow',
+            'location' => 'iHUB Yellow',
+        ]);
+    }
+
+    public function test_admin_cannot_use_removed_businesses(): void
     {
         Room::factory()->create([
             'slug' => 'imeet',
@@ -65,16 +106,35 @@ class AdminRoomApiTest extends TestCase
         $this->putJson('/api/admin/rooms/imeet', [
             'business_id' => 'yellow-conference',
             'location' => 'iHUB Yellow Conference',
+        ])->assertUnprocessable();
+
+        $this->patchJson('/api/admin/rooms/imeet', [
+            'business_id' => 'wfp-conference',
+            'location' => 'iHUB - WFP Conference',
+        ])->assertUnprocessable();
+    }
+
+    public function test_admin_can_patch_a_room_to_another_business(): void
+    {
+        Room::factory()->create([
+            'slug' => 'loft',
+            'business_id' => 'chisinau',
+            'location' => 'iHUB Chisinau',
+        ]);
+
+        $this->patchJson('/api/admin/rooms/loft', [
+            'business_id' => 'yellow',
+            'location' => 'iHUB Yellow',
         ])
             ->assertOk()
-            ->assertJsonPath('data.id', 'imeet')
-            ->assertJsonPath('data.business_id', 'yellow-conference')
-            ->assertJsonPath('data.location', 'iHUB Yellow Conference');
+            ->assertJsonPath('data.id', 'loft')
+            ->assertJsonPath('data.business_id', 'yellow')
+            ->assertJsonPath('data.location', 'iHUB Yellow');
 
         $this->assertDatabaseHas('rooms', [
-            'slug' => 'imeet',
-            'business_id' => 'yellow-conference',
-            'location' => 'iHUB Yellow Conference',
+            'slug' => 'loft',
+            'business_id' => 'yellow',
+            'location' => 'iHUB Yellow',
         ]);
     }
 }

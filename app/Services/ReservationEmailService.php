@@ -72,14 +72,13 @@ class ReservationEmailService
     private function guestHtml(Reservation $reservation): string
     {
         $name = e($reservation->first_name);
-        $location = e($reservation->room->location ?? 'iHUB Moldova');
 
         return $this->brandedHtml(
             title: 'Rezervarea ta este confirmata',
             eyebrow: 'Booking confirmat',
-            intro: "Salut {$name},<br><br>Rezervarea dumneavoastra (ID: {$reservation->id}) a fost confirmata cu {$location}. Iata detaliile rezervarii dumneavoastra:",
+            intro: "Salut {$name},<br><br>Rezervarea ta a fost confirmata.",
             detailsHtml: $this->confirmationDetailsHtml($reservation, includeGuest: false),
-            footer: 'Te asteptam la iHUB. Daca ai nevoie de modificari, contacteaza echipa iHUB Moldova.'
+            footer: ''
         );
     }
 
@@ -100,9 +99,9 @@ class ReservationEmailService
             'Rezervarea ta este confirmata.',
             'Buna, '.$reservation->first_name.'.',
             'Sala: '.$reservation->room->name,
-            'Data: '.$reservation->reserved_date->format('Y-m-d'),
+            'Data rezervarii: '.$reservation->reserved_date->format('Y-m-d'),
             'Ora: '.$this->timeRange($reservation),
-            'Multumim, iHUB Moldova',
+            'Multumim, iHUB Chisinau',
         ]);
     }
 
@@ -192,7 +191,6 @@ class ReservationEmailService
         $room = e($reservation->room->name);
         $date = e($reservation->reserved_date->format('Y-m-d'));
         $time = e($this->timeRange($reservation));
-        $location = e($reservation->room->location ?? 'iHUB Moldova');
         $guest = e($reservation->first_name.' '.$reservation->last_name);
         $email = e($reservation->email);
         $phone = e($reservation->phone);
@@ -202,11 +200,10 @@ class ReservationEmailService
 
         return <<<HTML
             {$guestDetails}
-            <p style="margin:0 0 10px;font-weight:800;font-style:italic;">Rezervati o sala de sedinte {$room}</p>
-            <p style="margin:0 0 12px;font-weight:800;font-style:italic;">{$date}, {$time} UTC +03:00, Ora Europei de Est</p>
-            <p style="margin:0 0 8px;font-style:italic;">{$location}</p>
-            <p style="margin:0 0 22px;font-style:italic;">Chisinau</p>
-            <p style="margin:0;">Multumesc,<br>iHUB Chisinau.</p>
+            <p style="margin:0 0 10px;"><strong>Sala: {$room}</strong></p>
+            <p style="margin:0 0 10px;"><strong>Data rezervarii: {$date}</strong></p>
+            <p style="margin:0 0 24px;"><strong>Ora: {$time}</strong></p>
+            <p style="margin:0;">Multumim,<br>iHUB Chisinau.</p>
         HTML;
     }
 }

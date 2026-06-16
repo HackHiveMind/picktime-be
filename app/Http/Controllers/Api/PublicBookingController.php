@@ -7,6 +7,7 @@ use App\Enums\ReservationStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Reservation;
 use App\Models\Room;
+use App\Services\ReservationEmailService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -66,8 +67,11 @@ class PublicBookingController extends Controller
         ]);
     }
 
-    public function store(Request $request, BookingSlotRules $slotRules): JsonResponse
-    {
+    public function store(
+        Request $request,
+        BookingSlotRules $slotRules,
+        ReservationEmailService $reservationEmailService
+    ): JsonResponse {
         $validated = $request->validate([
             'room_id' => ['required', Rule::exists('rooms', 'slug')->where('is_active', true)],
             'date' => ['required', 'date_format:Y-m-d'],
@@ -120,6 +124,8 @@ class PublicBookingController extends Controller
             'phone' => trim($validated['phone']),
             'notes' => isset($validated['notes']) ? trim($validated['notes']) : null,
         ])->save();
+
+        $reservationEmailService->sendPublicBookingEmails($reservation);
 
         return new JsonResponse([
             'data' => $this->reservationResponse($reservation->load('room')),

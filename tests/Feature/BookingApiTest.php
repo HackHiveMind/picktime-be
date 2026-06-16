@@ -6,6 +6,7 @@ use App\Enums\ReservationStatus;
 use App\Models\Reservation;
 use App\Models\Room;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class BookingApiTest extends TestCase
@@ -92,6 +93,83 @@ class BookingApiTest extends TestCase
             'starts_at' => '09:00',
             'ends_at' => '10:00',
         ]);
+    }
+
+    public function test_public_reservation_sends_guest_and_admin_emails_with_resend(): void
+    {
+        config([
+            'services.resend.key' => 're_test_key',
+            'services.resend.from' => 'iHUB Booking <bookings@example.com>',
+            'services.resend.admin_to' => 'admin@example.com',
+        ]);
+        Http::fake([
+            'api.resend.com/*' => Http::response([
+                'data' => [
+                    ['id' => 'guest-email-id'],
+                    ['id' => 'admin-email-id'],
+                ],
+            ]),
+        ]);
+        Room::factory()->create([
+            'name' => 'iMEET Room',
+            'slug' => 'imeet',
+        ]);
+
+        $this->postJson('/api/reservations', [
+            'room_id' => 'imeet',
+            'date' => '2026-06-10',
+            'start_time' => '09:00',
+            'first_name' => 'Ana',
+            'last_name' => 'Popescu',
+            'email' => 'Ana@Example.com',
+            'phone' => '+373 600 00 000',
+        ])->assertCreated();
+
+        Http::assertSent(function ($request): bool {
+            $payload = $request->data();
+
+            return $request->url() === 'https://api.resend.com/emails/batch'
+                && $request->method() === 'POST'
+                && $request->hasHeader('Authorization', 'Bearer re_test_key')
+                && count($payload) === 2
+                && $payload[0]['to'] === 'ana@example.com'
+                && $payload[0]['from'] === 'iHUB Booking <bookings@example.com>'
+                && $payload[0]['subject'] === 'Rezervarea ta iHUB este confirmata'
+                && str_contains($payload[0]['html'], 'iMEET Room')
+                && $payload[1]['to'] === 'admin@example.com'
+                && $payload[1]['subject'] === 'Rezervare noua iHUB'
+                && str_contains($payload[1]['html'], 'Ana Popescu');
+        });
+    }
+
+    public function test_public_reservation_still_succeeds_when_resend_fails(): void
+    {
+        config([
+            'services.resend.key' => 're_test_key',
+            'services.resend.from' => 'iHUB Booking <bookings@example.com>',
+            'services.resend.admin_to' => 'admin@example.com',
+        ]);
+        Http::fake([
+            'api.resend.com/*' => Http::response(['message' => 'Rate limited'], 429),
+        ]);
+        Room::factory()->create(['slug' => 'imeet']);
+
+        $this->postJson('/api/reservations', [
+            'room_id' => 'imeet',
+            'date' => '2026-06-10',
+            'start_time' => '09:00',
+            'first_name' => 'Ana',
+            'last_name' => 'Popescu',
+            'email' => 'ana@example.com',
+            'phone' => '+373 600 00 000',
+        ])->assertCreated();
+
+        $this->assertDatabaseHas('reservations', [
+            'email' => 'ana@example.com',
+            'starts_at' => '09:00',
+            'ends_at' => '10:00',
+        ]);
+        Http::assertSentCount(1);
     }
 
     public function test_public_reservation_endpoint_accepts_half_hour_start_times(): void

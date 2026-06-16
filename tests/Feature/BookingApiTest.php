@@ -138,10 +138,14 @@ class BookingApiTest extends TestCase
                 && str_contains($payload[0]['html'], 'https://pictime-ihub-booking-fe.vercel.app/ihub-logo.png')
                 && str_contains($payload[0]['html'], '#f7de05')
                 && str_contains($payload[0]['html'], '#74bd45')
+                && str_contains($payload[0]['html'], 'Detalii rezervare')
+                && str_contains($payload[0]['html'], 'booking-detail-card')
+                && ! str_contains($payload[0]['html'], 'dashboard')
                 && str_contains($payload[0]['html'], 'iMEET Room')
                 && $payload[1]['to'] === 'admin@example.com'
                 && $payload[1]['subject'] === 'Rezervare noua iHUB'
-                && str_contains($payload[1]['html'], 'Ana Popescu');
+                && str_contains($payload[1]['html'], 'Ana Popescu')
+                && ! str_contains($payload[1]['html'], 'dashboard');
         });
     }
 

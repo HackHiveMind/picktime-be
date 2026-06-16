@@ -81,9 +81,9 @@ class ReservationEmailService
             eyebrow: 'Booking confirmat',
             intro: "Buna, {$name}. Am confirmat rezervarea ta la iHUB Moldova.",
             rows: [
-                'Sala' => $room,
                 'Data' => $date,
                 'Ora' => $time,
+                'Sala' => $room,
             ],
             footer: 'Te asteptam la iHUB. Daca ai nevoie de modificari, contacteaza echipa iHUB Moldova.'
         );
@@ -110,7 +110,7 @@ class ReservationEmailService
                 'Email' => '<a href="mailto:'.$email.'" style="color:#111827;text-decoration:underline;">'.$email.'</a>',
                 'Telefon' => $phone,
             ],
-            footer: 'Verifica dashboard-ul admin pentru detalii si modificari.'
+            footer: 'Rezervarea este inregistrata in sistemul iHUB.'
         );
     }
 
@@ -158,41 +158,43 @@ class ReservationEmailService
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
                 <tr>
                   <td align="center">
-                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;border-collapse:collapse;background:#ffffff;border:1px solid #e5e7eb;border-radius:18px;overflow:hidden;">
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;border-collapse:collapse;background:#ffffff;border:1px solid #e5e7eb;border-radius:16px;overflow:hidden;">
                       <tr>
-                        <td style="background:#050505;padding:26px 30px;">
+                        <td style="background:#050505;padding:24px 32px 22px;">
                           <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;">
                             <tr>
                               <td style="vertical-align:middle;">
-                                <img src="{$logoUrl}" alt="iHUB Moldova" width="92" style="display:block;border:0;outline:none;text-decoration:none;border-radius:10px;">
+                                <img src="{$logoUrl}" alt="iHUB Moldova" width="82" style="display:block;border:0;outline:none;text-decoration:none;border-radius:10px;">
                               </td>
                               <td align="right" style="vertical-align:middle;">
-                                <span style="display:inline-block;background:#f7de05;color:#050505;border-radius:999px;padding:8px 12px;font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;">{$eyebrow}</span>
+                                <span style="display:inline-block;background:#f7de05;color:#050505;border-radius:999px;padding:9px 13px;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;">{$eyebrow}</span>
                               </td>
                             </tr>
                           </table>
                         </td>
                       </tr>
                       <tr>
-                        <td style="padding:34px 30px 12px;">
-                          <h1 style="margin:0;font-size:30px;line-height:1.15;font-weight:800;color:#111827;">{$title}</h1>
+                        <td style="padding:34px 32px 18px;text-align:left;">
+                          <p style="margin:0 0 10px;color:#74bd45;font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;">iHUB Moldova</p>
+                          <h1 style="margin:0;font-size:32px;line-height:1.15;font-weight:800;color:#111827;">{$title}</h1>
                           <p style="margin:14px 0 0;font-size:16px;line-height:1.6;color:#4b5563;">{$intro}</p>
                         </td>
                       </tr>
                       <tr>
-                        <td style="padding:16px 30px 8px;">
-                          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:separate;border-spacing:0;background:#fafafa;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
+                        <td style="padding:8px 32px 14px;">
+                          <p style="margin:0 0 12px;font-size:13px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#6b7280;">Detalii rezervare</p>
+                          <table class="booking-detail-card" role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:separate;border-spacing:0;background:#fbfbf8;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
                             {$detailsRows}
                           </table>
                         </td>
                       </tr>
                       <tr>
-                        <td style="padding:18px 30px 34px;">
-                          <div style="border-left:5px solid #74bd45;background:#f0f9ec;border-radius:12px;padding:14px 16px;color:#183b12;font-size:14px;line-height:1.55;">{$footer}</div>
+                        <td style="padding:12px 32px 34px;">
+                          <div style="border-left:5px solid #74bd45;background:#f0f9ec;border-radius:10px;padding:14px 16px;color:#183b12;font-size:14px;line-height:1.55;">{$footer}</div>
                         </td>
                       </tr>
                       <tr>
-                        <td style="background:#050505;padding:18px 30px;color:#d1d5db;font-size:12px;line-height:1.5;">
+                        <td style="background:#050505;padding:18px 32px;color:#d1d5db;font-size:12px;line-height:1.5;">
                           iHUB Moldova · Meeting room booking
                         </td>
                       </tr>
@@ -211,8 +213,8 @@ class ReservationEmailService
 
         return <<<HTML
             <tr>
-              <td style="width:34%;padding:14px 16px;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;">{$label}</td>
-              <td style="padding:14px 16px;border-bottom:1px solid #e5e7eb;color:#111827;font-size:15px;font-weight:700;">{$value}</td>
+              <td style="width:36%;padding:17px 18px;border-bottom:1px solid #e5e7eb;color:#6b7280;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;">{$label}</td>
+              <td style="padding:17px 18px;border-bottom:1px solid #e5e7eb;color:#111827;font-size:16px;font-weight:800;">{$value}</td>
             </tr>
         HTML;
     }

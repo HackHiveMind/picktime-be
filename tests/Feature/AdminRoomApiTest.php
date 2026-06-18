@@ -96,6 +96,28 @@ class AdminRoomApiTest extends TestCase
         ]);
     }
 
+    public function test_admin_can_update_a_room_with_a_compressed_data_image(): void
+    {
+        Room::factory()->create([
+            'slug' => 'imeet',
+            'image_url' => null,
+        ]);
+
+        $image = 'data:image/jpeg;base64,'.str_repeat('a', 250000);
+
+        $this->putJson('/api/admin/rooms/imeet', [
+            'image_url' => $image,
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.id', 'imeet')
+            ->assertJsonPath('data.image_url', $image);
+
+        $this->assertDatabaseHas('rooms', [
+            'slug' => 'imeet',
+            'image_url' => $image,
+        ]);
+    }
+
     public function test_admin_can_move_a_room_to_yellow_business(): void
     {
         Room::factory()->create([

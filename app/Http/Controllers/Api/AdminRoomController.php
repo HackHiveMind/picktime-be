@@ -66,7 +66,7 @@ class AdminRoomController extends Controller
             'amenities' => ['sometimes', 'array'],
             'amenities.*' => ['string', 'max:255'],
             'accent' => ['nullable', 'string', 'max:32'],
-            'image_url' => ['nullable', 'string', 'max:200000'],
+            'image_url' => ['nullable', 'string', 'max:1000000'],
             'is_active' => ['sometimes', 'boolean'],
         ]);
     }

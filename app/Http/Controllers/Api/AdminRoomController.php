@@ -66,6 +66,7 @@ class AdminRoomController extends Controller
             'amenities' => ['sometimes', 'array'],
             'amenities.*' => ['string', 'max:255'],
             'accent' => ['nullable', 'string', 'max:32'],
+            'image_url' => ['nullable', 'string', 'max:200000'],
             'is_active' => ['sometimes', 'boolean'],
         ]);
     }
@@ -99,6 +100,7 @@ class AdminRoomController extends Controller
             'location' => $room->location,
             'amenities' => $room->amenities ?? [],
             'accent' => $room->accent,
+            'image_url' => $room->image_url,
             'is_active' => $room->is_active,
         ];
     }

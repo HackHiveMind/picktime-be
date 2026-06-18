@@ -19,6 +19,7 @@ class Room extends Model
         'location',
         'amenities',
         'accent',
+        'image_url',
         'is_active',
     ];
 

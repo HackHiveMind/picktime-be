@@ -157,6 +157,7 @@ class PublicBookingController extends Controller
             'location' => $room->location,
             'amenities' => $room->amenities ?? [],
             'accent' => $room->accent,
+            'image_url' => $room->image_url,
         ];
     }
 

@@ -27,6 +27,7 @@ class RoomFactory extends Factory
             'location' => 'iHUB Chisinau',
             'amenities' => [],
             'accent' => '#f7de05',
+            'image_url' => null,
             'is_active' => true,
         ];
     }

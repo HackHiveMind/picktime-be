@@ -37,6 +37,7 @@ class AdminRoomApiTest extends TestCase
             'location' => 'iHUB Chisinau',
             'amenities' => ['TV'],
             'accent' => '#74bd45',
+            'image_url' => 'https://example.test/imeet.jpg',
         ]);
 
         $this->getJson('/api/admin/rooms')
@@ -45,7 +46,8 @@ class AdminRoomApiTest extends TestCase
             ->assertJsonPath('data.0.business_id', 'chisinau')
             ->assertJsonPath('data.0.location', 'iHUB Chisinau')
             ->assertJsonPath('data.0.amenities.0', 'TV')
-            ->assertJsonPath('data.0.accent', '#74bd45');
+            ->assertJsonPath('data.0.accent', '#74bd45')
+            ->assertJsonPath('data.0.image_url', 'https://example.test/imeet.jpg');
     }
 
     public function test_admin_can_create_a_room(): void
@@ -57,17 +59,40 @@ class AdminRoomApiTest extends TestCase
             'location' => 'iHUB Yellow',
             'amenities' => ['Mic'],
             'accent' => '#f7de05',
+            'image_url' => 'https://example.test/podcast.jpg',
         ])
             ->assertCreated()
             ->assertJsonPath('data.id', 'podcast-studio')
             ->assertJsonPath('data.name', 'Podcast Studio')
-            ->assertJsonPath('data.business_id', 'yellow');
+            ->assertJsonPath('data.business_id', 'yellow')
+            ->assertJsonPath('data.image_url', 'https://example.test/podcast.jpg');
 
         $this->assertDatabaseHas('rooms', [
             'slug' => 'podcast-studio',
             'name' => 'Podcast Studio',
             'capacity' => 4,
             'business_id' => 'yellow',
+            'image_url' => 'https://example.test/podcast.jpg',
+        ]);
+    }
+
+    public function test_admin_can_update_a_room_image(): void
+    {
+        Room::factory()->create([
+            'slug' => 'imeet',
+            'image_url' => 'https://example.test/old.jpg',
+        ]);
+
+        $this->putJson('/api/admin/rooms/imeet', [
+            'image_url' => 'https://example.test/new.jpg',
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.id', 'imeet')
+            ->assertJsonPath('data.image_url', 'https://example.test/new.jpg');
+
+        $this->assertDatabaseHas('rooms', [
+            'slug' => 'imeet',
+            'image_url' => 'https://example.test/new.jpg',
         ]);
     }
 

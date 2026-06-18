@@ -20,6 +20,7 @@ class BookingApiTest extends TestCase
             'slug' => 'imeet',
             'capacity' => 8,
             'is_active' => true,
+            'image_url' => 'https://example.test/imeet.jpg',
         ]);
         Room::factory()->create(['is_active' => false]);
 
@@ -29,7 +30,8 @@ class BookingApiTest extends TestCase
             ->assertJsonPath('data.0.id', 'imeet')
             ->assertJsonPath('data.0.name', 'iMEET Room')
             ->assertJsonPath('data.0.capacity', 8)
-            ->assertJsonPath('data.0.business_id', 'chisinau');
+            ->assertJsonPath('data.0.business_id', 'chisinau')
+            ->assertJsonPath('data.0.image_url', 'https://example.test/imeet.jpg');
     }
 
     public function test_public_booking_endpoints_remain_open_without_login(): void

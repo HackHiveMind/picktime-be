@@ -7,6 +7,7 @@ use App\Enums\ReservationStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Reservation;
 use App\Models\Room;
+use App\Services\ReservationEmailService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -66,15 +67,33 @@ class PublicBookingController extends Controller
         ]);
     }
 
-    public function store(Request $request, BookingSlotRules $slotRules): JsonResponse
-    {
+    public function store(
+        Request $request,
+        BookingSlotRules $slotRules,
+        ReservationEmailService $reservationEmailService
+    ): JsonResponse {
         $validated = $request->validate([
             'room_id' => ['required', Rule::exists('rooms', 'slug')->where('is_active', true)],
             'date' => ['required', 'date_format:Y-m-d'],
             'start_time' => ['required', Rule::in($slotRules->slotStarts())],
             'first_name' => ['required', 'string', 'max:255'],
             'last_name' => ['required', 'string', 'max:255'],
-            'email' => ['required', 'email', 'max:255'],
+            'email' => [
+                'required',
+                'email',
+                'max:255',
+                function (string $attribute, mixed $value, \Closure $fail): void {
+                    if (! $this->shouldValidateDeliverableEmailDomain()) {
+                        return;
+                    }
+
+                    $domain = str((string) $value)->afterLast('@')->lower()->toString();
+
+                    if (in_array($domain, ['example.com', 'example.net', 'example.org', 'test.com'], true)) {
+                        $fail('Use a real email address so we can send the booking confirmation.');
+                    }
+                },
+            ],
             'phone' => ['required', 'string', 'max:255'],
             'notes' => ['nullable', 'string', 'max:2000'],
         ]);
@@ -121,6 +140,8 @@ class PublicBookingController extends Controller
             'notes' => isset($validated['notes']) ? trim($validated['notes']) : null,
         ])->save();
 
+        $reservationEmailService->sendPublicBookingEmails($reservation);
+
         return new JsonResponse([
             'data' => $this->reservationResponse($reservation->load('room')),
         ], 201);
@@ -160,6 +181,12 @@ class PublicBookingController extends Controller
     private function formatTime(string $time): string
     {
         return substr($time, 0, 5);
+    }
+
+    private function shouldValidateDeliverableEmailDomain(): bool
+    {
+        return filled(config('mail.from.address'))
+            && filled(config('services.booking_email.admin_to'));
     }
 
     private function overlaps(string $start, string $end, string $reservationStart, string $reservationEnd): bool

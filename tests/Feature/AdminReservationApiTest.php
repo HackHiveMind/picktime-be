@@ -8,6 +8,7 @@ use App\Models\Room;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Http;
 use Tests\TestCase;
 
 class AdminReservationApiTest extends TestCase
@@ -251,6 +252,72 @@ class AdminReservationApiTest extends TestCase
             'ends_at' => '11:30',
         ]);
         $this->assertSame('2026-07-05', $reservation->refresh()->reserved_date->format('Y-m-d'));
+    }
+
+    public function test_admin_update_reservation_resends_confirmation_email_with_new_details(): void
+    {
+        config([
+            'services.booking_email.driver' => 'mailjet',
+            'services.mailjet.key' => 'mj_test_key',
+            'services.mailjet.secret' => 'mj_test_secret',
+            'services.mailjet.from_address' => 'booking@ihub.test',
+            'services.mailjet.from_name' => 'iHUB Booking',
+            'services.booking_email.admin_to' => 'admin@example.com',
+        ]);
+        Http::fake([
+            'api.mailjet.com/*' => Http::response([
+                'Messages' => [
+                    ['Status' => 'success'],
+                    ['Status' => 'success'],
+                ],
+            ]),
+        ]);
+
+        $oldRoom = Room::factory()->create(['slug' => 'imeet', 'name' => 'iMEET Room']);
+        Room::factory()->create(['slug' => 'loft', 'name' => 'Loft Room']);
+        $reservation = Reservation::factory()->for($oldRoom)->create([
+            'first_name' => 'Ana',
+            'last_name' => 'Popescu',
+            'email' => 'ana@gmail.com',
+            'reserved_date' => '2026-07-04',
+            'starts_at' => '13:00',
+            'ends_at' => '15:00',
+        ]);
+
+        $this->putJson("/api/admin/reservations/{$reservation->id}", [
+            'room_id' => 'loft',
+            'date' => '2026-07-05',
+            'start_time' => '10:00',
+            'end_time' => '11:30',
+            'first_name' => 'Ana',
+            'last_name' => 'Popescu',
+            'email' => 'ana@gmail.com',
+            'phone' => '060000000',
+            'status' => 'confirmed',
+            'notes' => 'Moved by admin',
+        ])->assertOk();
+
+        Http::assertSent(function ($request): bool {
+            $payload = $request->data();
+            $messages = $payload['Messages'] ?? [];
+            $guest = $messages[0] ?? [];
+            $admin = $messages[1] ?? [];
+            $guestHtml = $guest['HTMLPart'] ?? '';
+            $adminHtml = $admin['HTMLPart'] ?? '';
+
+            return $request->url() === 'https://api.mailjet.com/v3.1/send'
+                && count($messages) === 2
+                && ($guest['To'][0]['Email'] ?? null) === 'ana@gmail.com'
+                && ($guest['Subject'] ?? null) === 'Rezervarea ta iHUB este confirmata'
+                && str_contains($guestHtml, 'Sala: Loft Room')
+                && str_contains($guestHtml, 'Data rezervarii: 2026-07-05')
+                && str_contains($guestHtml, 'Ora: 10:00 - 11:30')
+                && ($admin['To'][0]['Email'] ?? null) === 'admin@example.com'
+                && ($admin['Subject'] ?? null) === 'Rezervare noua iHUB'
+                && str_contains($adminHtml, 'Sala: Loft Room')
+                && str_contains($adminHtml, 'Data rezervarii: 2026-07-05')
+                && str_contains($adminHtml, 'Ora: 10:00 - 11:30');
+        });
     }
 
     public function test_admin_update_reservation_rejects_overlapping_booking(): void

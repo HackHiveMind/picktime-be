@@ -6,6 +6,7 @@ use App\Enums\ReservationStatus;
 use App\Http\Controllers\Controller;
 use App\Models\Reservation;
 use App\Models\Room;
+use App\Services\ReservationEmailService;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -90,7 +91,11 @@ class AdminReservationController extends Controller
         ], 201);
     }
 
-    public function update(Request $request, Reservation $reservation): JsonResponse
+    public function update(
+        Request $request,
+        Reservation $reservation,
+        ReservationEmailService $reservationEmailService
+    ): JsonResponse
     {
         $validated = $this->validateReservationPayload($request);
 
@@ -115,8 +120,10 @@ class AdminReservationController extends Controller
             'notes' => isset($validated['notes']) ? trim($validated['notes']) : null,
         ]);
 
+        $reservationEmailService->sendPublicBookingEmails($reservation->load('room'));
+
         return new JsonResponse([
-            'data' => $this->reservationResponse($reservation->load('room')),
+            'data' => $this->reservationResponse($reservation),
         ]);
     }
 

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\Room;
+use App\Services\AdminRoomService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -26,29 +27,20 @@ class AdminRoomController extends Controller
         return new JsonResponse(['data' => $rooms]);
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(Request $request, AdminRoomService $rooms): JsonResponse
     {
         $validated = $this->validatedRoom($request);
-        $room = Room::query()->create([
-            ...$validated,
-            'slug' => $this->uniqueSlug($validated['name']),
-            'is_active' => true,
-        ]);
+        $room = $rooms->create($validated);
 
         return new JsonResponse(['data' => $this->roomResponse($room)], 201);
     }
 
-    public function update(Request $request, Room $room): JsonResponse
+    public function update(Request $request, Room $room, AdminRoomService $rooms): JsonResponse
     {
         $validated = $this->validatedRoom($request, required: false);
+        $room = $rooms->update($room, $validated);
 
-        if (array_key_exists('name', $validated) && $validated['name'] !== $room->name) {
-            $validated['slug'] = $this->uniqueSlug($validated['name'], $room);
-        }
-
-        $room->update($validated);
-
-        return new JsonResponse(['data' => $this->roomResponse($room->refresh())]);
+        return new JsonResponse(['data' => $this->roomResponse($room)]);
     }
 
     /**
@@ -68,25 +60,6 @@ class AdminRoomController extends Controller
             'accent' => ['nullable', 'string', 'max:32'],
             'is_active' => ['sometimes', 'boolean'],
         ]);
-    }
-
-    private function uniqueSlug(string $name, ?Room $ignoreRoom = null): string
-    {
-        $baseSlug = str($name)->slug()->toString() ?: 'room';
-        $slug = $baseSlug;
-        $index = 2;
-
-        while (
-            Room::query()
-                ->where('slug', $slug)
-                ->when($ignoreRoom, fn ($query) => $query->whereKeyNot($ignoreRoom->getKey()))
-                ->exists()
-        ) {
-            $slug = "{$baseSlug}-{$index}";
-            $index++;
-        }
-
-        return $slug;
     }
 
     private function roomResponse(Room $room): array

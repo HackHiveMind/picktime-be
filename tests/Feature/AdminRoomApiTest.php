@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Room;
 use App\Models\User;
+use App\Services\Telemetry\MetricsRecorder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
 use Tests\TestCase;
@@ -136,5 +137,75 @@ class AdminRoomApiTest extends TestCase
             'business_id' => 'yellow',
             'location' => 'iHUB Yellow',
         ]);
+    }
+
+    public function test_admin_can_toggle_room_booking_under_one_second(): void
+    {
+        Room::factory()->create([
+            'slug' => 'imeet',
+            'is_active' => true,
+        ]);
+
+        $startedAt = microtime(true);
+
+        $this->patchJson('/api/admin/rooms/imeet', [
+            'is_active' => false,
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.id', 'imeet')
+            ->assertJsonPath('data.is_active', false);
+
+        $this->assertLessThan(
+            1.0,
+            microtime(true) - $startedAt,
+            'Room booking toggle should complete under the 1 second KPI.',
+        );
+        $this->assertDatabaseHas('rooms', [
+            'slug' => 'imeet',
+            'is_active' => false,
+        ]);
+    }
+
+    public function test_room_booking_toggle_records_telemetry(): void
+    {
+        $metrics = new class implements MetricsRecorder
+        {
+            /** @var array<int, array{metric: string, labels: array<string, string>}> */
+            public array $increments = [];
+
+            /** @var array<int, array{metric: string, value: float, labels: array<string, string>}> */
+            public array $observations = [];
+
+            public function increment(string $metric, array $labels = []): void
+            {
+                $this->increments[] = compact('metric', 'labels');
+            }
+
+            public function observe(string $metric, float $value, array $labels = []): void
+            {
+                $this->observations[] = compact('metric', 'value', 'labels');
+            }
+        };
+
+        $this->app->instance(MetricsRecorder::class, $metrics);
+
+        Room::factory()->create([
+            'slug' => 'imeet',
+            'is_active' => true,
+        ]);
+
+        $this->patchJson('/api/admin/rooms/imeet', [
+            'is_active' => false,
+        ])->assertOk();
+
+        $this->assertSame('booking_room_toggle_total', $metrics->increments[0]['metric'] ?? null);
+        $this->assertSame('booking_room_toggle_duration_seconds', $metrics->observations[0]['metric'] ?? null);
+        $this->assertSame([
+            'service' => 'admin_room',
+            'operation' => 'toggle_booking',
+            'room_id' => 'imeet',
+            'status' => 'success',
+        ], $metrics->increments[0]['labels'] ?? []);
+        $this->assertGreaterThanOrEqual(0, $metrics->observations[0]['value'] ?? -1);
     }
 }

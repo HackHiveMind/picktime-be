@@ -45,6 +45,12 @@ class MetricsController extends Controller
             '# TYPE booking_reservation_delete_total counter',
             '# HELP booking_reservation_delete_duration_seconds Reservation delete duration.',
             '# TYPE booking_reservation_delete_duration_seconds histogram',
+            '# HELP booking_api_requests_total API request count.',
+            '# TYPE booking_api_requests_total counter',
+            '# HELP booking_api_request_duration_seconds API request duration.',
+            '# TYPE booking_api_request_duration_seconds histogram',
+            '# HELP booking_api_errors_total API error response count.',
+            '# TYPE booking_api_errors_total counter',
         ];
 
         foreach ($metrics->series() as $series) {

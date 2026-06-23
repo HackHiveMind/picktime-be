@@ -117,4 +117,25 @@ class TelemetryMetricsTest extends TestCase
             ->assertSee('booking_reservation_create_total{operation="create",room_id="imeet",service="public_booking",status="success"} 1', false)
             ->assertSee('booking_reservation_create_duration_seconds_count{operation="create",room_id="imeet",service="public_booking",status="success"} 1', false);
     }
+
+    public function test_metrics_endpoint_exposes_successful_api_request_metrics(): void
+    {
+        $this->getJson('/api/health')->assertOk();
+
+        $this->get('/api/metrics')
+            ->assertOk()
+            ->assertSee('booking_api_requests_total{method="GET",route="/api/health",status_code="200"} 1', false)
+            ->assertSee('booking_api_request_duration_seconds_count{method="GET",route="/api/health",status_code="200"} 1', false)
+            ->assertDontSee('booking_api_requests_total{method="GET",route="/api/metrics"', false);
+    }
+
+    public function test_metrics_endpoint_exposes_failed_api_request_metrics(): void
+    {
+        $this->getJson('/api/admin/rooms')->assertUnauthorized();
+
+        $this->get('/api/metrics')
+            ->assertOk()
+            ->assertSee('booking_api_requests_total{method="GET",route="/api/admin/rooms",status_code="401"} 1', false)
+            ->assertSee('booking_api_errors_total{method="GET",route="/api/admin/rooms",status_code="401"} 1', false);
+    }
 }

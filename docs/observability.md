@@ -144,3 +144,19 @@ BASE_URL=http://127.0.0.1:8000 ADMIN_TOKEN=... ROOM_ID=imeet npm run perf:room-t
 ```
 
 The script fails when p95 is not under one second.
+
+## Database Performance
+
+Booking overlap checks are protected by a composite index:
+
+```text
+reservations(room_id, reserved_date, status, starts_at, ends_at)
+```
+
+Active room listing is protected by:
+
+```text
+rooms(is_active, name)
+```
+
+These match the highest-traffic filters used by availability checks, public booking create, admin reservation create/update, and public room listing.

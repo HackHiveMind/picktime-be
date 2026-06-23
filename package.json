@@ -4,7 +4,8 @@
     "type": "module",
     "scripts": {
         "build": "vite build",
-        "dev": "vite"
+        "dev": "vite",
+        "perf:room-toggle": "k6 run tests/Performance/room-toggle.k6.js"
     },
     "devDependencies": {
         "@tailwindcss/vite": "^4.0.0",

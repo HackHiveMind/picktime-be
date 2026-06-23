@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AdminReservationController;
 use App\Http\Controllers\Api\AdminRoomController;
+use App\Http\Controllers\Api\MetricsController;
 use App\Http\Controllers\Api\PublicBookingController;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Route;
@@ -12,6 +13,8 @@ Route::get('/health', function () {
         'status' => 'ok',
     ]);
 });
+
+Route::get('/metrics', MetricsController::class);
 
 Route::get('/rooms', [PublicBookingController::class, 'rooms']);
 Route::get('/rooms/{room:slug}/availability', [PublicBookingController::class, 'availability']);

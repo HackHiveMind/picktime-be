@@ -53,6 +53,9 @@ booking_reservation_cancel_total
 booking_reservation_cancel_duration_seconds
 booking_reservation_delete_total
 booking_reservation_delete_duration_seconds
+booking_api_requests_total
+booking_api_request_duration_seconds
+booking_api_errors_total
 ```
 
 Labels:
@@ -127,6 +130,26 @@ Reservation conflict rate:
 ```promql
 sum(rate(booking_reservation_create_total{status="conflict"}[5m])) by (service)
 ```
+
+API request rate by route:
+
+```promql
+sum(rate(booking_api_requests_total[5m])) by (route, method)
+```
+
+API p95 latency by route:
+
+```promql
+histogram_quantile(0.95, sum(rate(booking_api_request_duration_seconds_bucket[5m])) by (le, route, method))
+```
+
+API errors by route:
+
+```promql
+sum(rate(booking_api_errors_total[5m])) by (route, method, status_code)
+```
+
+The `/api/metrics` endpoint is excluded from request-level instrumentation to avoid self-scrape noise.
 
 ## Performance KPI
 

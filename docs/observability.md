@@ -45,6 +45,14 @@ Prometheus scrapes `host.docker.internal:8000/api/metrics`.
 ```text
 booking_room_toggle_total
 booking_room_toggle_duration_seconds
+booking_reservation_create_total
+booking_reservation_create_duration_seconds
+booking_reservation_update_total
+booking_reservation_update_duration_seconds
+booking_reservation_cancel_total
+booking_reservation_cancel_duration_seconds
+booking_reservation_delete_total
+booking_reservation_delete_duration_seconds
 ```
 
 Labels:
@@ -82,6 +90,42 @@ Room toggle error rate:
 
 ```promql
 sum(rate(booking_room_toggle_total{status!="success"}[5m])) / sum(rate(booking_room_toggle_total[5m]))
+```
+
+Reservation create rate by service:
+
+```promql
+sum(rate(booking_reservation_create_total[5m])) by (service)
+```
+
+Reservation update rate by service:
+
+```promql
+sum(rate(booking_reservation_update_total[5m])) by (service)
+```
+
+Reservation cancel rate:
+
+```promql
+sum(rate(booking_reservation_cancel_total[5m])) by (service)
+```
+
+Reservation delete rate:
+
+```promql
+sum(rate(booking_reservation_delete_total[5m])) by (service)
+```
+
+Reservation create p95 latency by service:
+
+```promql
+histogram_quantile(0.95, sum(rate(booking_reservation_create_duration_seconds_bucket[5m])) by (le, service))
+```
+
+Reservation conflict rate:
+
+```promql
+sum(rate(booking_reservation_create_total{status="conflict"}[5m])) by (service)
 ```
 
 ## Performance KPI

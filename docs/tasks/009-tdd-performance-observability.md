@@ -32,14 +32,16 @@ Continue the observability rollout for the Laravel booking backend.
 
 Current state:
 - AdminRoomService emits room toggle metrics.
+- AdminReservationService emits admin reservation create/update/cancel/delete metrics.
+- PublicBookingService emits public booking create metrics.
 - /api/metrics exposes Prometheus text metrics.
 - Docker Compose includes Prometheus and Grafana.
 - k6 room toggle KPI script exists.
 
 Next tasks:
-1. Extract reservation create/update/cancel/delete behavior into service classes.
-2. Instrument those services with MetricsRecorder.
-3. Add metrics for reservation create/update/cancel/delete totals and duration histograms.
-4. Extend Grafana dashboard and docs with the new query map.
+1. Add request-level API middleware metrics for route duration and HTTP error rate.
+2. Add CI wiring for optional k6 room toggle KPI runs.
+3. Decide whether production metrics should remain cache-backed or move to a dedicated Prometheus client/storage adapter.
+4. Add alert rules for room toggle p95 > 1s and reservation conflict spikes.
 5. Run the relevant feature tests and full composer test.
 ```

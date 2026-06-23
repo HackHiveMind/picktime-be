@@ -29,6 +29,22 @@ class MetricsController extends Controller
             '# TYPE booking_room_toggle_total counter',
             '# HELP booking_room_toggle_duration_seconds Room booking toggle duration.',
             '# TYPE booking_room_toggle_duration_seconds histogram',
+            '# HELP booking_reservation_create_total Reservation create attempts.',
+            '# TYPE booking_reservation_create_total counter',
+            '# HELP booking_reservation_create_duration_seconds Reservation create duration.',
+            '# TYPE booking_reservation_create_duration_seconds histogram',
+            '# HELP booking_reservation_update_total Reservation update attempts.',
+            '# TYPE booking_reservation_update_total counter',
+            '# HELP booking_reservation_update_duration_seconds Reservation update duration.',
+            '# TYPE booking_reservation_update_duration_seconds histogram',
+            '# HELP booking_reservation_cancel_total Reservation cancel attempts.',
+            '# TYPE booking_reservation_cancel_total counter',
+            '# HELP booking_reservation_cancel_duration_seconds Reservation cancel duration.',
+            '# TYPE booking_reservation_cancel_duration_seconds histogram',
+            '# HELP booking_reservation_delete_total Reservation delete attempts.',
+            '# TYPE booking_reservation_delete_total counter',
+            '# HELP booking_reservation_delete_duration_seconds Reservation delete duration.',
+            '# TYPE booking_reservation_delete_duration_seconds histogram',
         ];
 
         foreach ($metrics->series() as $series) {

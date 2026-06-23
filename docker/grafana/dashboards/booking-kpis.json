@@ -80,6 +80,69 @@
       ],
       "title": "Room Toggle Error Rate",
       "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "id": 4,
+      "targets": [
+        {
+          "expr": "sum(rate(booking_reservation_create_total[5m])) by (service)",
+          "legendFormat": "{{service}} creates/sec"
+        },
+        {
+          "expr": "sum(rate(booking_reservation_update_total[5m])) by (service)",
+          "legendFormat": "{{service}} updates/sec"
+        },
+        {
+          "expr": "sum(rate(booking_reservation_cancel_total[5m])) by (service)",
+          "legendFormat": "{{service}} cancels/sec"
+        },
+        {
+          "expr": "sum(rate(booking_reservation_delete_total[5m])) by (service)",
+          "legendFormat": "{{service}} deletes/sec"
+        }
+      ],
+      "title": "Reservation Operations",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "Prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        }
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 16
+      },
+      "id": 5,
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(booking_reservation_create_duration_seconds_bucket[5m])) by (le, service))",
+          "legendFormat": "{{service}} create p95"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum(rate(booking_reservation_update_duration_seconds_bucket[5m])) by (le, service))",
+          "legendFormat": "{{service}} update p95"
+        }
+      ],
+      "title": "Reservation Latency",
+      "type": "timeseries"
     }
   ],
   "schemaVersion": 40,

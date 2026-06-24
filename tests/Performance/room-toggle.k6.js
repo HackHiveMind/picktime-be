@@ -40,8 +40,9 @@ export default function () {
 
   if (!loggedTimingSample) {
     loggedTimingSample = true;
+    const timingHeader = response.headers['Server-Timing'] || response.headers['X-Booking-Timing'] || '';
     console.log(
-      `timing sample: status=${response.status} duration_ms=${response.timings.duration.toFixed(2)} server_timing="${response.headers['Server-Timing'] || ''}"`,
+      `timing sample: status=${response.status} duration_ms=${response.timings.duration.toFixed(2)} timing="${timingHeader}"`,
     );
   }
 

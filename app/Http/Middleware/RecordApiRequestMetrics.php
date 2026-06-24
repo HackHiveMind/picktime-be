@@ -84,6 +84,7 @@ class RecordApiRequestMetrics
 
         if ($header !== '') {
             $response->headers->set('Server-Timing', $header);
+            $response->headers->set('X-Booking-Timing', $header);
         }
     }
 

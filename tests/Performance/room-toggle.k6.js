@@ -18,6 +18,7 @@ export const options = {
 const baseUrl = __ENV.BASE_URL || 'http://127.0.0.1:8000';
 const adminToken = __ENV.ADMIN_TOKEN;
 const roomId = __ENV.ROOM_ID || 'imeet';
+let loggedTimingSample = false;
 
 export default function () {
   if (!adminToken) {
@@ -36,6 +37,13 @@ export default function () {
       },
     },
   );
+
+  if (!loggedTimingSample) {
+    loggedTimingSample = true;
+    console.log(
+      `timing sample: status=${response.status} duration_ms=${response.timings.duration.toFixed(2)} server_timing="${response.headers['Server-Timing'] || ''}"`,
+    );
+  }
 
   check(response, {
     'toggle returned 200': (res) => res.status === 200,

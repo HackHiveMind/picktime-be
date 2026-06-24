@@ -1,0 +1,52 @@
+name: Room Toggle Performance
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: Base URL for the deployed backend
+        required: true
+        type: string
+      room_id:
+        description: Room slug to toggle during the test
+        required: true
+        default: imeet
+        type: string
+      vus:
+        description: Number of virtual users
+        required: false
+        default: "5"
+        type: string
+      duration:
+        description: Test duration
+        required: false
+        default: 30s
+        type: string
+
+jobs:
+  room-toggle-performance:
+    name: k6 room toggle KPI
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up k6
+        uses: grafana/setup-k6-action@v1
+
+      - name: Run room toggle load test
+        env:
+          BASE_URL: ${{ inputs.base_url }}
+          ROOM_ID: ${{ inputs.room_id }}
+          VUS: ${{ inputs.vus }}
+          DURATION: ${{ inputs.duration }}
+          ADMIN_TOKEN: ${{ secrets.ADMIN_TOKEN }}
+        run: |
+          if [ -z "$ADMIN_TOKEN" ]; then
+            echo "ADMIN_TOKEN repository secret is required." >&2
+            exit 1
+          fi
+
+          k6 run tests/Performance/room-toggle.k6.js

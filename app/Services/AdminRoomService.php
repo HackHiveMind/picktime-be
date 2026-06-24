@@ -29,10 +29,14 @@ class AdminRoomService
     public function update(Room $room, array $attributes): Room
     {
         $startedAt = microtime(true);
-        $isToggle = array_key_exists('is_active', $attributes);
+        $isToggleOnly = array_key_exists('is_active', $attributes) && count($attributes) === 1;
         $status = 'success';
 
         try {
+            if ($isToggleOnly) {
+                return $this->toggleBooking($room, (bool) $attributes['is_active']);
+            }
+
             if (array_key_exists('name', $attributes) && $attributes['name'] !== $room->name) {
                 $attributes['slug'] = $this->uniqueSlug($attributes['name'], $room);
             }
@@ -45,7 +49,7 @@ class AdminRoomService
 
             throw $exception;
         } finally {
-            if ($isToggle) {
+            if (array_key_exists('is_active', $attributes)) {
                 $labels = [
                     'service' => 'admin_room',
                     'operation' => 'toggle_booking',
@@ -61,6 +65,22 @@ class AdminRoomService
                 );
             }
         }
+    }
+
+    private function toggleBooking(Room $room, bool $isActive): Room
+    {
+        if ((bool) $room->is_active === $isActive) {
+            return $room;
+        }
+
+        Room::query()
+            ->whereKey($room->getKey())
+            ->where('is_active', '!=', $isActive)
+            ->update(['is_active' => $isActive]);
+
+        $room->is_active = $isActive;
+
+        return $room;
     }
 
     private function uniqueSlug(string $name, ?Room $ignoreRoom = null): string

@@ -7,6 +7,7 @@ use App\Models\User;
 use App\Services\Telemetry\MetricsRecorder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class AdminRoomApiTest extends TestCase
@@ -207,5 +208,28 @@ class AdminRoomApiTest extends TestCase
             'status' => 'success',
         ], $metrics->increments[0]['labels'] ?? []);
         $this->assertGreaterThanOrEqual(0, $metrics->observations[0]['value'] ?? -1);
+    }
+
+    public function test_room_booking_toggle_skips_write_when_state_is_unchanged(): void
+    {
+        Room::factory()->create([
+            'slug' => 'imeet',
+            'is_active' => false,
+        ]);
+
+        DB::enableQueryLog();
+
+        $this->patchJson('/api/admin/rooms/imeet', [
+            'is_active' => false,
+        ])
+            ->assertOk()
+            ->assertJsonPath('data.id', 'imeet')
+            ->assertJsonPath('data.is_active', false);
+
+        $updateQueries = collect(DB::getQueryLog())
+            ->filter(fn (array $query): bool => str_starts_with(strtolower($query['query']), 'update "rooms"'))
+            ->count();
+
+        $this->assertSame(0, $updateQueries);
     }
 }

@@ -12,7 +12,11 @@ class AuthenticateAdminApi
 {
     public function handle(Request $request, Closure $next): Response
     {
+        $startedAt = microtime(true);
+
         if (Auth::check()) {
+            $this->recordAuthDuration($request, $startedAt);
+
             return $next($request);
         }
 
@@ -30,11 +34,19 @@ class AuthenticateAdminApi
 
             if ($user) {
                 Auth::setUser($user);
+                $this->recordAuthDuration($request, $startedAt);
 
                 return $next($request);
             }
         }
 
+        $this->recordAuthDuration($request, $startedAt);
+
         abort(401, 'Unauthenticated.');
+    }
+
+    private function recordAuthDuration(Request $request, float $startedAt): void
+    {
+        $request->attributes->set('timing.admin_auth', microtime(true) - $startedAt);
     }
 }

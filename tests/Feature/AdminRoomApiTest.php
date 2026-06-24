@@ -232,4 +232,25 @@ class AdminRoomApiTest extends TestCase
 
         $this->assertSame(0, $updateQueries);
     }
+
+    public function test_room_booking_toggle_includes_server_timing_diagnostics(): void
+    {
+        Room::factory()->create([
+            'slug' => 'imeet',
+            'is_active' => true,
+        ]);
+
+        $response = $this->patchJson('/api/admin/rooms/imeet', [
+            'is_active' => false,
+        ])
+            ->assertOk()
+            ->assertHeader('Server-Timing');
+
+        $serverTiming = $response->headers->get('Server-Timing', '');
+
+        $this->assertStringContainsString('total;dur=', $serverTiming);
+        $this->assertStringContainsString('admin_auth;dur=', $serverTiming);
+        $this->assertStringContainsString('toggle_service;dur=', $serverTiming);
+        $this->assertStringContainsString('toggle_db;dur=', $serverTiming);
+    }
 }

@@ -244,13 +244,16 @@ class AdminRoomApiTest extends TestCase
             'is_active' => false,
         ])
             ->assertOk()
-            ->assertHeader('Server-Timing');
+            ->assertHeader('Server-Timing')
+            ->assertHeader('X-Booking-Timing');
 
         $serverTiming = $response->headers->get('Server-Timing', '');
+        $bookingTiming = $response->headers->get('X-Booking-Timing', '');
 
         $this->assertStringContainsString('total;dur=', $serverTiming);
         $this->assertStringContainsString('admin_auth;dur=', $serverTiming);
         $this->assertStringContainsString('toggle_service;dur=', $serverTiming);
         $this->assertStringContainsString('toggle_db;dur=', $serverTiming);
+        $this->assertSame($serverTiming, $bookingTiming);
     }
 }

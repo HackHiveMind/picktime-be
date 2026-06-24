@@ -11,6 +11,7 @@ use App\Models\Room;
 use App\Services\PublicBookingService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
 
 class PublicBookingController extends Controller
@@ -39,32 +40,38 @@ class PublicBookingController extends Controller
             ->where('status', '!=', ReservationStatus::Cancelled)
             ->get(['starts_at', 'ends_at']);
 
-        $slots = collect($slotRules->slotStarts())
-            ->map(function (string $start) use ($reservations, $slotRules): array {
-                $end = $slotRules->endForStart($start);
+        return new JsonResponse([
+            'data' => $this->availabilityResponse($room, $validated['date'], $reservations, $slotRules),
+        ]);
+    }
 
-                return [
-                    'start' => $start,
-                    'end' => $end,
-                    'label' => $start.' - '.$end,
-                    'available' => ! $reservations->contains(
-                        fn (Reservation $reservation): bool => $this->overlaps(
-                            $start,
-                            $end,
-                            $this->formatTime($reservation->starts_at),
-                            $this->formatTime($reservation->ends_at),
-                        ),
-                    ),
-                ];
-            })
-            ->values();
+    public function availabilityIndex(Request $request, BookingSlotRules $slotRules): JsonResponse
+    {
+        $validated = $request->validate([
+            'date' => ['required', 'date_format:Y-m-d'],
+        ]);
+
+        $rooms = Room::query()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
+
+        $reservationsByRoom = Reservation::query()
+            ->whereIn('room_id', $rooms->pluck('id'))
+            ->whereDate('reserved_date', $validated['date'])
+            ->where('status', '!=', ReservationStatus::Cancelled)
+            ->get(['room_id', 'starts_at', 'ends_at'])
+            ->groupBy('room_id');
 
         return new JsonResponse([
-            'data' => [
-                'room_id' => $room->slug,
-                'date' => $validated['date'],
-                'slots' => $slots,
-            ],
+            'data' => $rooms
+                ->map(fn (Room $room): array => $this->availabilityResponse(
+                    $room,
+                    $validated['date'],
+                    $reservationsByRoom->get($room->id, collect()),
+                    $slotRules,
+                ))
+                ->values(),
         ]);
     }
 
@@ -124,6 +131,39 @@ class PublicBookingController extends Controller
             'status' => $reservation->status->value,
             'notes' => $reservation->notes ?? '',
             'created_at' => $reservation->created_at?->toISOString(),
+        ];
+    }
+
+    private function availabilityResponse(
+        Room $room,
+        string $date,
+        Collection $reservations,
+        BookingSlotRules $slotRules,
+    ): array {
+        $slots = collect($slotRules->slotStarts())
+            ->map(function (string $start) use ($reservations, $slotRules): array {
+                $end = $slotRules->endForStart($start);
+
+                return [
+                    'start' => $start,
+                    'end' => $end,
+                    'label' => $start.' - '.$end,
+                    'available' => ! $reservations->contains(
+                        fn (Reservation $reservation): bool => $this->overlaps(
+                            $start,
+                            $end,
+                            $this->formatTime($reservation->starts_at),
+                            $this->formatTime($reservation->ends_at),
+                        ),
+                    ),
+                ];
+            })
+            ->values();
+
+        return [
+            'room_id' => $room->slug,
+            'date' => $date,
+            'slots' => $slots,
         ];
     }
 

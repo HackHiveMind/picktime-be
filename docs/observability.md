@@ -217,6 +217,37 @@ BASE_URL=http://127.0.0.1:8000 ADMIN_TOKEN=... ROOM_ID=imeet npm run perf:room-t
 
 The script fails when p95 is not under one second.
 
+## Performance Workflow
+
+The room toggle KPI can also be tested from GitHub Actions with the manual workflow:
+
+```text
+Room Toggle Performance
+```
+
+Repository secret required:
+
+```text
+ADMIN_TOKEN
+```
+
+Workflow inputs:
+
+```text
+base_url  Deployed backend URL, for example https://api.example.com
+room_id   Room slug to toggle, for example imeet
+vus       Virtual users, default 5
+duration  Test duration, default 30s
+```
+
+The workflow runs:
+
+```bash
+k6 run tests/Performance/room-toggle.k6.js
+```
+
+It fails automatically if the k6 thresholds fail, including `http_req_duration p(95)<1000`.
+
 ## Database Performance
 
 Booking overlap checks are protected by a composite index:

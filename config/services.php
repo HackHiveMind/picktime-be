@@ -41,4 +41,6 @@ return [
         'redirect' => env('GOOGLE_REDIRECT_URI', env('APP_URL').'/admin/google/callback'),
     ],
 
+    'performance_admin_token' => env('PERFORMANCE_ADMIN_TOKEN'),
+
 ];

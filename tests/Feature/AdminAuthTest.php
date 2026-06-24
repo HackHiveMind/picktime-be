@@ -2,9 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Models\Room;
 use App\Models\User;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Password;
@@ -114,6 +116,35 @@ class AdminAuthTest extends TestCase
         $this->withHeader('Authorization', 'Bearer '.$query['admin_token'])
             ->getJson('/api/admin/rooms')
             ->assertOk();
+    }
+
+    public function test_performance_admin_token_can_access_admin_api_without_user_lookup(): void
+    {
+        config(['services.performance_admin_token' => 'performance-secret']);
+
+        Room::factory()->create(['slug' => 'imeet']);
+
+        DB::enableQueryLog();
+
+        $this->withHeader('Authorization', 'Bearer performance-secret')
+            ->getJson('/api/admin/rooms')
+            ->assertOk()
+            ->assertJsonPath('data.0.id', 'imeet');
+
+        $userQueries = collect(DB::getQueryLog())
+            ->filter(fn (array $query): bool => str_contains($query['query'], 'from "users"'))
+            ->count();
+
+        $this->assertSame(0, $userQueries);
+    }
+
+    public function test_invalid_performance_admin_token_still_requires_authentication(): void
+    {
+        config(['services.performance_admin_token' => 'performance-secret']);
+
+        $this->withHeader('Authorization', 'Bearer wrong-secret')
+            ->getJson('/api/admin/rooms')
+            ->assertUnauthorized();
     }
 
     public function test_admin_login_rejects_invalid_credentials(): void

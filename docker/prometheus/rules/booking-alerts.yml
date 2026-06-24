@@ -1,0 +1,42 @@
+groups:
+  - name: booking-kpis
+    rules:
+      - alert: RoomToggleLatencyHigh
+        expr: histogram_quantile(0.95, sum(rate(booking_room_toggle_duration_seconds_bucket[5m])) by (le)) > 1
+        for: 5m
+        labels:
+          severity: warning
+          service: booking
+        annotations:
+          summary: Room toggle p95 latency is above 1 second
+          description: The room booking toggle p95 latency has stayed above the 1 second KPI for 5 minutes.
+
+      - alert: ApiLatencyHigh
+        expr: histogram_quantile(0.95, sum(rate(booking_api_request_duration_seconds_bucket[5m])) by (le, route, method)) > 1
+        for: 5m
+        labels:
+          severity: warning
+          service: booking
+        annotations:
+          summary: API p95 latency is above 1 second
+          description: "{{ $labels.method }} {{ $labels.route }} has stayed above 1 second p95 latency for 5 minutes."
+
+      - alert: ApiErrorRateHigh
+        expr: sum(rate(booking_api_errors_total[5m])) by (route, method) / clamp_min(sum(rate(booking_api_requests_total[5m])) by (route, method), 0.001) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          service: booking
+        annotations:
+          summary: API error rate is above 5 percent
+          description: "{{ $labels.method }} {{ $labels.route }} has an API error rate above 5 percent for 5 minutes."
+
+      - alert: ReservationConflictSpike
+        expr: sum(rate(booking_reservation_create_total{status="conflict"}[5m])) by (service) > 0.1
+        for: 5m
+        labels:
+          severity: info
+          service: booking
+        annotations:
+          summary: Reservation conflict rate is elevated
+          description: "{{ $labels.service }} is seeing more than 0.1 reservation conflicts per second for 5 minutes."

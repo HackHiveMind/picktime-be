@@ -28,6 +28,7 @@ class RecordApiRequestMetrics
         try {
             $response = $next($request);
             $statusCode = $response->getStatusCode();
+            $this->appendServerTiming($request, $response, microtime(true) - $startedAt);
 
             return $response;
         } catch (\Throwable $exception) {
@@ -61,5 +62,34 @@ class RecordApiRequestMetrics
         }
 
         return '/'.ltrim($request->path(), '/');
+    }
+
+    private function appendServerTiming(Request $request, Response $response, float $totalDuration): void
+    {
+        if (! $this->shouldExposeTimingDetails($request)) {
+            return;
+        }
+
+        $timings = [
+            'total' => $totalDuration,
+            'admin_auth' => $request->attributes->get('timing.admin_auth'),
+            'toggle_service' => $request->attributes->get('timing.admin_room_toggle_service'),
+            'toggle_db' => $request->attributes->get('timing.admin_room_toggle_db'),
+        ];
+
+        $header = collect($timings)
+            ->filter(fn (mixed $duration): bool => is_float($duration) || is_int($duration))
+            ->map(fn (float|int $duration, string $name): string => sprintf('%s;dur=%.2f', $name, $duration * 1000))
+            ->implode(', ');
+
+        if ($header !== '') {
+            $response->headers->set('Server-Timing', $header);
+        }
+    }
+
+    private function shouldExposeTimingDetails(Request $request): bool
+    {
+        return in_array($request->method(), ['PATCH', 'PUT'], true)
+            && $request->is('api/admin/rooms/*');
     }
 }

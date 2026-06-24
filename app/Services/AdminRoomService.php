@@ -50,6 +50,8 @@ class AdminRoomService
             throw $exception;
         } finally {
             if (array_key_exists('is_active', $attributes)) {
+                request()->attributes->set('timing.admin_room_toggle_service', microtime(true) - $startedAt);
+
                 $labels = [
                     'service' => 'admin_room',
                     'operation' => 'toggle_booking',
@@ -69,7 +71,11 @@ class AdminRoomService
 
     private function toggleBooking(Room $room, bool $isActive): Room
     {
+        $startedAt = microtime(true);
+
         if ((bool) $room->is_active === $isActive) {
+            request()->attributes->set('timing.admin_room_toggle_db', 0.0);
+
             return $room;
         }
 
@@ -77,6 +83,8 @@ class AdminRoomService
             ->whereKey($room->getKey())
             ->where('is_active', '!=', $isActive)
             ->update(['is_active' => $isActive]);
+
+        request()->attributes->set('timing.admin_room_toggle_db', microtime(true) - $startedAt);
 
         $room->is_active = $isActive;
 

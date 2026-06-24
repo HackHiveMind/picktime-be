@@ -231,6 +231,14 @@ Repository secret required:
 ADMIN_TOKEN
 ```
 
+For the fastest performance run, set `ADMIN_TOKEN` to the same value as the backend environment variable:
+
+```env
+PERFORMANCE_ADMIN_TOKEN=...
+```
+
+When this token is used, the admin API skips the database-backed temporary login token lookup and avoids adding auth query latency to the benchmark.
+
 Workflow inputs:
 
 ```text

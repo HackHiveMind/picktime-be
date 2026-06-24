@@ -23,6 +23,12 @@ class AuthenticateAdminApi
         $token = $request->bearerToken();
 
         if (filled($token)) {
+            if ($this->isPerformanceAdminToken($token)) {
+                $this->recordAuthDuration($request, $startedAt);
+
+                return $next($request);
+            }
+
             $user = User::query()
                 ->where('admin_api_token_hash', hash('sha256', $token))
                 ->where(function ($query): void {
@@ -48,5 +54,13 @@ class AuthenticateAdminApi
     private function recordAuthDuration(Request $request, float $startedAt): void
     {
         $request->attributes->set('timing.admin_auth', microtime(true) - $startedAt);
+    }
+
+    private function isPerformanceAdminToken(string $token): bool
+    {
+        $performanceToken = config('services.performance_admin_token');
+
+        return filled($performanceToken)
+            && hash_equals((string) $performanceToken, $token);
     }
 }

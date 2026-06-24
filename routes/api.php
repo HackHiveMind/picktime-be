@@ -18,6 +18,7 @@ Route::middleware('api.telemetry')->group(function (): void {
     });
 
     Route::get('/rooms', [PublicBookingController::class, 'rooms']);
+    Route::get('/availability', [PublicBookingController::class, 'availabilityIndex']);
     Route::get('/rooms/{room:slug}/availability', [PublicBookingController::class, 'availability']);
     Route::post('/reservations', [PublicBookingController::class, 'store']);
 

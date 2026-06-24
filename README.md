@@ -50,6 +50,7 @@ GET /api/health
 
 ```text
 GET  /api/rooms
+GET  /api/availability?date=YYYY-MM-DD
 GET  /api/rooms/{room_id}/availability?date=YYYY-MM-DD
 POST /api/reservations
 ```

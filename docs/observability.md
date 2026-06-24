@@ -151,6 +151,55 @@ sum(rate(booking_api_errors_total[5m])) by (route, method, status_code)
 
 The `/api/metrics` endpoint is excluded from request-level instrumentation to avoid self-scrape noise.
 
+## Alerts
+
+Local Prometheus loads alert rules from:
+
+```text
+docker/prometheus/rules/booking-alerts.yml
+```
+
+Alerts:
+
+```text
+RoomToggleLatencyHigh
+ApiLatencyHigh
+ApiErrorRateHigh
+ReservationConflictSpike
+```
+
+`RoomToggleLatencyHigh` fires when room toggle p95 latency stays above `1s` for 5 minutes:
+
+```promql
+histogram_quantile(0.95, sum(rate(booking_room_toggle_duration_seconds_bucket[5m])) by (le)) > 1
+```
+
+`ApiLatencyHigh` fires when any API route p95 latency stays above `1s` for 5 minutes:
+
+```promql
+histogram_quantile(0.95, sum(rate(booking_api_request_duration_seconds_bucket[5m])) by (le, route, method)) > 1
+```
+
+`ApiErrorRateHigh` fires when an API route has more than 5 percent errors for 5 minutes:
+
+```promql
+sum(rate(booking_api_errors_total[5m])) by (route, method) / clamp_min(sum(rate(booking_api_requests_total[5m])) by (route, method), 0.001) > 0.05
+```
+
+`ReservationConflictSpike` fires when reservation create conflicts rise above `0.1/s` for 5 minutes:
+
+```promql
+sum(rate(booking_reservation_create_total{status="conflict"}[5m])) by (service) > 0.1
+```
+
+Validate the Prometheus config with Docker:
+
+```bash
+docker run --rm -v "$PWD/docker/prometheus:/etc/prometheus:ro" prom/prometheus:v2.55.1 promtool check config /etc/prometheus/prometheus.yml
+```
+
+After `docker compose up`, open `http://localhost:9090/alerts` to inspect alert state.
+
 ## Performance KPI
 
 Room booking toggle KPI:

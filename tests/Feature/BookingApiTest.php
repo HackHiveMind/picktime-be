@@ -63,6 +63,42 @@ class BookingApiTest extends TestCase
             ->assertJsonPath('data.slots.2.available', true);
     }
 
+    public function test_batch_availability_endpoint_returns_active_room_slots_in_one_response(): void
+    {
+        $brainstorm = Room::factory()->create([
+            'name' => 'Book Brainstorm',
+            'slug' => 'brainstorm',
+            'is_active' => true,
+        ]);
+        Room::factory()->create([
+            'slug' => 'offline-room',
+            'is_active' => false,
+        ]);
+        Room::factory()->create([
+            'name' => 'iMEET Room',
+            'slug' => 'imeet',
+            'is_active' => true,
+        ]);
+        Reservation::factory()->for($brainstorm)->create([
+            'status' => ReservationStatus::Confirmed,
+            'reserved_date' => '2026-06-24',
+            'starts_at' => '09:00',
+            'ends_at' => '10:00',
+        ]);
+
+        $this->getJson('/api/availability?date=2026-06-24')
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.room_id', 'brainstorm')
+            ->assertJsonPath('data.0.date', '2026-06-24')
+            ->assertJsonPath('data.0.slots.0.available', false)
+            ->assertJsonPath('data.0.slots.1.available', false)
+            ->assertJsonPath('data.0.slots.2.available', true)
+            ->assertJsonPath('data.1.room_id', 'imeet')
+            ->assertJsonPath('data.1.slots.0.available', true)
+            ->assertJsonPath('data.1.slots.1.available', true);
+    }
+
     public function test_public_reservation_endpoint_creates_a_reservation(): void
     {
         Room::factory()->create(['slug' => 'imeet']);

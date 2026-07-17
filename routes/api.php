@@ -17,9 +17,13 @@ Route::middleware('api.telemetry')->group(function (): void {
         ]);
     });
 
-    Route::get('/rooms', [PublicBookingController::class, 'rooms']);
-    Route::get('/rooms/{room:slug}/availability', [PublicBookingController::class, 'availability']);
-    Route::post('/reservations', [PublicBookingController::class, 'store']);
+    Route::middleware('throttle:public-api')->group(function (): void {
+        Route::get('/rooms', [PublicBookingController::class, 'rooms']);
+        Route::get('/rooms/{room:slug}/availability', [PublicBookingController::class, 'availability']);
+    });
+
+    Route::post('/reservations', [PublicBookingController::class, 'store'])
+        ->middleware('throttle:reservations');
 
     Route::middleware('admin.api')->group(function (): void {
         Route::get('/admin/reservations', [AdminReservationController::class, 'index']);

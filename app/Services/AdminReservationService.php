@@ -7,6 +7,8 @@ use App\Exceptions\ReservationOverlapException;
 use App\Models\Reservation;
 use App\Models\Room;
 use App\Services\Telemetry\MetricsRecorder;
+use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\DB;
 
 class AdminReservationService
 {
@@ -20,28 +22,33 @@ class AdminReservationService
     public function create(array $attributes): Reservation
     {
         return $this->record('create', $attributes['room_id'], function () use ($attributes): Reservation {
-            $room = $this->activeRoom($attributes['room_id']);
+            return DB::transaction(function () use ($attributes): Reservation {
+                $room = $this->activeRoom($attributes['room_id']);
 
-            if ($this->hasOverlap($room, $attributes)) {
-                throw new ReservationOverlapException('Selected room is already reserved for this time range.');
-            }
+                $this->lockRoomDay($room, $attributes['date']);
 
-            $reservation = Reservation::query()
-                ->where('room_id', $room->id)
-                ->whereDate('reserved_date', $attributes['date'])
-                ->where('starts_at', $attributes['start_time'])
-                ->first();
+                if ($this->hasOverlap($room, $attributes)) {
+                    throw new ReservationOverlapException('Selected room is already reserved for this time range.');
+                }
 
-            $reservation ??= new Reservation([
-                'room_id' => $room->id,
-                'reserved_date' => $attributes['date'],
-                'starts_at' => $attributes['start_time'],
-            ]);
+                $reservation = Reservation::query()
+                    ->where('room_id', $room->id)
+                    ->whereDate('reserved_date', $attributes['date'])
+                    ->where('starts_at', $attributes['start_time'])
+                    ->first();
 
-            $reservation->fill($this->reservationAttributes($attributes, $attributes['status'] ?? ReservationStatus::Confirmed))
-                ->save();
+                $reservation ??= new Reservation([
+                    'room_id' => $room->id,
+                    'reserved_date' => $attributes['date'],
+                    'starts_at' => $attributes['start_time'],
+                ]);
 
-            return $reservation->load('room');
+                $reservation->fill($this->reservationAttributes($attributes, $attributes['status'] ?? ReservationStatus::Confirmed));
+
+                $this->saveOrConflict($reservation);
+
+                return $reservation->load('room');
+            });
         });
     }
 
@@ -51,18 +58,24 @@ class AdminReservationService
     public function update(Reservation $reservation, array $attributes): Reservation
     {
         return $this->record('update', $attributes['room_id'], function () use ($reservation, $attributes): Reservation {
-            $room = $this->activeRoom($attributes['room_id']);
+            return DB::transaction(function () use ($reservation, $attributes): Reservation {
+                $room = $this->activeRoom($attributes['room_id']);
 
-            if ($this->hasOverlap($room, $attributes, $reservation)) {
-                throw new ReservationOverlapException('Selected room is already reserved for this time range.');
-            }
+                $this->lockRoomDay($room, $attributes['date']);
 
-            $reservation->update([
-                'room_id' => $room->id,
-                ...$this->reservationAttributes($attributes, $attributes['status'] ?? $reservation->status),
-            ]);
+                if ($this->hasOverlap($room, $attributes, $reservation)) {
+                    throw new ReservationOverlapException('Selected room is already reserved for this time range.');
+                }
 
-            return $reservation->load('room');
+                $reservation->fill([
+                    'room_id' => $room->id,
+                    ...$this->reservationAttributes($attributes, $attributes['status'] ?? $reservation->status),
+                ]);
+
+                $this->saveOrConflict($reservation);
+
+                return $reservation->load('room');
+            });
         });
     }
 
@@ -89,6 +102,37 @@ class AdminReservationService
 
             return null;
         });
+    }
+
+    /**
+     * Lock the room/day reservation rows so concurrent writes serialize on the
+     * overlap check instead of both passing it (TOCTOU race).
+     */
+    private function lockRoomDay(Room $room, string $date): void
+    {
+        Reservation::query()
+            ->where('room_id', $room->id)
+            ->whereDate('reserved_date', $date)
+            ->lockForUpdate()
+            ->get();
+    }
+
+    /**
+     * Persist the reservation, translating a DB overlap/unique violation from a
+     * concurrent request into a clean conflict instead of a 500.
+     */
+    private function saveOrConflict(Reservation $reservation): void
+    {
+        try {
+            $reservation->save();
+        } catch (QueryException $exception) {
+            // 23P01 = exclusion_violation, 23505 = unique_violation.
+            if (in_array($exception->getCode(), ['23P01', '23505'], true)) {
+                throw new ReservationOverlapException('Selected room is already reserved for this time range.');
+            }
+
+            throw $exception;
+        }
     }
 
     private function activeRoom(string $slug): Room

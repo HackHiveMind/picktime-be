@@ -52,8 +52,18 @@ return Application::configure(basePath: dirname(__DIR__))
                 ? $exception->getStatusCode()
                 : 500;
 
+            if ($status >= 500) {
+                report($exception);
+            }
+
+            // HttpException messages are written by us => safe to expose. Other
+            // exceptions may leak SQL, column names, hosts => generic in production.
+            $message = $exception instanceof HttpExceptionInterface
+                ? ($exception->getMessage() ?: 'Server error.')
+                : (config('app.debug') ? $exception->getMessage() : 'Server error.');
+
             return new JsonResponse([
-                'message' => $exception->getMessage() ?: 'Server error.',
+                'message' => $message,
             ], $status);
         });
     })->create();

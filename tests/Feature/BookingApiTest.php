@@ -99,6 +99,46 @@ class BookingApiTest extends TestCase
             ->assertJsonPath('data.1.slots.1.available', true);
     }
 
+    public function test_batch_availability_endpoint_returns_a_whole_date_range_in_one_response(): void
+    {
+        $brainstorm = Room::factory()->create([
+            'name' => 'Book Brainstorm',
+            'slug' => 'brainstorm',
+            'is_active' => true,
+        ]);
+        Room::factory()->create([
+            'name' => 'iMEET Room',
+            'slug' => 'imeet',
+            'is_active' => true,
+        ]);
+        // Booked only on the second day.
+        Reservation::factory()->for($brainstorm)->create([
+            'status' => ReservationStatus::Confirmed,
+            'reserved_date' => '2026-06-25',
+            'starts_at' => '09:00',
+            'ends_at' => '10:00',
+        ]);
+
+        $this->getJson('/api/availability?date_from=2026-06-24&date_to=2026-06-25')
+            ->assertOk()
+            ->assertJsonCount(4, 'data') // 2 days x 2 rooms, date-major then room order
+            ->assertJsonPath('data.0.room_id', 'brainstorm')
+            ->assertJsonPath('data.0.date', '2026-06-24')
+            ->assertJsonPath('data.0.slots.0.available', true) // free on the 24th
+            ->assertJsonPath('data.2.room_id', 'brainstorm')
+            ->assertJsonPath('data.2.date', '2026-06-25')
+            ->assertJsonPath('data.2.slots.0.available', false); // booked on the 25th
+    }
+
+    public function test_batch_availability_endpoint_rejects_an_excessive_date_range(): void
+    {
+        Room::factory()->create(['is_active' => true]);
+
+        $this->getJson('/api/availability?date_from=2026-06-01&date_to=2026-08-01')
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('date_to');
+    }
+
     public function test_public_reservation_endpoint_creates_a_reservation(): void
     {
         Room::factory()->create(['slug' => 'imeet']);

@@ -9,13 +9,19 @@ use App\Http\Controllers\Controller;
 use App\Models\Reservation;
 use App\Models\Room;
 use App\Services\PublicBookingService;
+use Carbon\Carbon;
+use Carbon\CarbonInterface;
+use Carbon\CarbonPeriod;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class PublicBookingController extends Controller
 {
+    private const MAX_RANGE_DAYS = 31;
+
     public function rooms(): JsonResponse
     {
         $rooms = Room::query()
@@ -48,31 +54,69 @@ class PublicBookingController extends Controller
     public function availabilityIndex(Request $request, BookingSlotRules $slotRules): JsonResponse
     {
         $validated = $request->validate([
-            'date' => ['required', 'date_format:Y-m-d'],
+            // Single day (back-compatible) or an inclusive range so a whole
+            // calendar view can be fetched in one request instead of one per day.
+            'date' => ['required_without:date_from', 'date_format:Y-m-d'],
+            'date_from' => ['required_with:date_to', 'date_format:Y-m-d'],
+            'date_to' => ['required_with:date_from', 'date_format:Y-m-d', 'after_or_equal:date_from'],
         ]);
+
+        [$from, $to] = $this->resolveDateRange($validated);
+
+        $dates = collect(CarbonPeriod::create($from, $to))
+            ->map(fn (CarbonInterface $day): string => $day->format('Y-m-d'));
 
         $rooms = Room::query()
             ->where('is_active', true)
             ->orderBy('name')
             ->get();
 
-        $reservationsByRoom = Reservation::query()
+        // One query for the whole range, keyed by room + day.
+        $reservationsByRoomDate = Reservation::query()
             ->whereIn('room_id', $rooms->pluck('id'))
-            ->whereDate('reserved_date', $validated['date'])
+            ->whereDate('reserved_date', '>=', $from)
+            ->whereDate('reserved_date', '<=', $to)
             ->where('status', '!=', ReservationStatus::Cancelled)
-            ->get(['room_id', 'starts_at', 'ends_at'])
-            ->groupBy('room_id');
+            ->get(['room_id', 'reserved_date', 'starts_at', 'ends_at'])
+            ->groupBy(fn (Reservation $reservation): string => $reservation->room_id.'|'.$reservation->reserved_date->format('Y-m-d'));
 
-        return new JsonResponse([
-            'data' => $rooms
-                ->map(fn (Room $room): array => $this->availabilityResponse(
+        $data = [];
+
+        foreach ($dates as $date) {
+            foreach ($rooms as $room) {
+                $data[] = $this->availabilityResponse(
                     $room,
-                    $validated['date'],
-                    $reservationsByRoom->get($room->id, collect()),
+                    $date,
+                    $reservationsByRoomDate->get($room->id.'|'.$date, collect()),
                     $slotRules,
-                ))
-                ->values(),
-        ]);
+                );
+            }
+        }
+
+        return new JsonResponse(['data' => $data]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     * @return array{0: string, 1: string}
+     */
+    private function resolveDateRange(array $validated): array
+    {
+        if (! isset($validated['date_from'])) {
+            return [$validated['date'], $validated['date']];
+        }
+
+        $from = $validated['date_from'];
+        $to = $validated['date_to'];
+
+        // Cap the span so a single request can't fan out into an unbounded scan.
+        if (Carbon::parse($from)->diffInDays(Carbon::parse($to)) > self::MAX_RANGE_DAYS) {
+            throw ValidationException::withMessages([
+                'date_to' => sprintf('The date range may not exceed %d days.', self::MAX_RANGE_DAYS),
+            ]);
+        }
+
+        return [$from, $to];
     }
 
     public function store(Request $request, BookingSlotRules $slotRules, PublicBookingService $bookings): JsonResponse

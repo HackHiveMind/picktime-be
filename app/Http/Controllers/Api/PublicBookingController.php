@@ -9,13 +9,18 @@ use App\Http\Controllers\Controller;
 use App\Models\Reservation;
 use App\Models\Room;
 use App\Services\PublicBookingService;
+use App\Services\RoomAvailabilityService;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class PublicBookingController extends Controller
 {
+    private const MAX_RANGE_DAYS = 31;
+
     public function rooms(): JsonResponse
     {
         $rooms = Room::query()
@@ -30,6 +35,7 @@ class PublicBookingController extends Controller
 
     public function availability(Request $request, Room $room, BookingSlotRules $slotRules): JsonResponse
     {
+        abort_unless($room->is_active, 404);
         $validated = $request->validate([
             'date' => ['required', 'date_format:Y-m-d'],
         ]);
@@ -40,6 +46,8 @@ class PublicBookingController extends Controller
             ->where('status', '!=', ReservationStatus::Cancelled)
             ->get(['starts_at', 'ends_at']);
 
+        $room->load(['blocks' => fn ($query) => $query->whereDate('blocked_date', $validated['date'])]);
+
         return new JsonResponse([
             'data' => $this->availabilityResponse($room, $validated['date'], $reservations, $slotRules),
         ]);
@@ -48,31 +56,56 @@ class PublicBookingController extends Controller
     public function availabilityIndex(Request $request, BookingSlotRules $slotRules): JsonResponse
     {
         $validated = $request->validate([
-            'date' => ['required', 'date_format:Y-m-d'],
+            'date' => ['required_without:date_from', 'prohibits:date_from,date_to', 'date_format:Y-m-d'],
+            'date_from' => ['required_with:date_to', 'date_format:Y-m-d'],
+            'date_to' => ['required_with:date_from', 'date_format:Y-m-d', 'after_or_equal:date_from'],
+            'room_id' => ['nullable', Rule::exists('rooms', 'slug')->where('is_active', true)],
         ]);
 
+        $from = $validated['date_from'] ?? $validated['date'];
+        $to = $validated['date_to'] ?? $from;
+        $firstDay = CarbonImmutable::parse($from);
+        $lastDay = CarbonImmutable::parse($to);
+
+        if ($firstDay->diffInDays($lastDay) >= self::MAX_RANGE_DAYS) {
+            throw ValidationException::withMessages([
+                'date_to' => 'The date range may not exceed '.self::MAX_RANGE_DAYS.' days.',
+            ]);
+        }
+
+        $until = $lastDay->addDay()->toDateString();
         $rooms = Room::query()
             ->where('is_active', true)
+            ->with(['blocks' => fn ($query) => $query->where('blocked_date', '>=', $from)->where('blocked_date', '<', $until)])
+            ->when(
+                $validated['room_id'] ?? null,
+                fn ($query, string $roomId) => $query->where('slug', $roomId),
+            )
             ->orderBy('name')
             ->get();
 
-        $reservationsByRoom = Reservation::query()
+        $reservationsByRoomAndDate = Reservation::query()
             ->whereIn('room_id', $rooms->pluck('id'))
-            ->whereDate('reserved_date', $validated['date'])
+            ->where('reserved_date', '>=', $from)
+            ->where('reserved_date', '<', $until)
             ->where('status', '!=', ReservationStatus::Cancelled)
-            ->get(['room_id', 'starts_at', 'ends_at'])
-            ->groupBy('room_id');
+            ->get(['room_id', 'reserved_date', 'starts_at', 'ends_at'])
+            ->groupBy(fn (Reservation $reservation): string => $reservation->room_id.'|'.$reservation->reserved_date->toDateString());
 
-        return new JsonResponse([
-            'data' => $rooms
-                ->map(fn (Room $room): array => $this->availabilityResponse(
+        $data = [];
+
+        for ($day = $firstDay; ($date = $day->toDateString()) <= $to; $day = $day->addDay()) {
+            foreach ($rooms as $room) {
+                $data[] = $this->availabilityResponse(
                     $room,
-                    $validated['date'],
-                    $reservationsByRoom->get($room->id, collect()),
+                    $date,
+                    $reservationsByRoomAndDate->get($room->id.'|'.$date, collect()),
                     $slotRules,
-                ))
-                ->values(),
-        ]);
+                );
+            }
+        }
+
+        return new JsonResponse(['data' => $data]);
     }
 
     public function store(Request $request, BookingSlotRules $slotRules, PublicBookingService $bookings): JsonResponse
@@ -86,7 +119,10 @@ class PublicBookingController extends Controller
             'email' => ['required', 'email', 'max:255'],
             'phone' => ['required', 'string', 'max:255'],
             'notes' => ['nullable', 'string', 'max:2000'],
+            'locale' => ['nullable', Rule::in(['ro', 'en', 'ru'])],
         ]);
+
+        $validated['locale'] ??= $request->getPreferredLanguage(['ro', 'en', 'ru']) ?? 'ro';
 
         $endTime = $slotRules->endForStart($validated['start_time']);
 
@@ -141,14 +177,14 @@ class PublicBookingController extends Controller
         BookingSlotRules $slotRules,
     ): array {
         $slots = collect($slotRules->slotStarts())
-            ->map(function (string $start) use ($reservations, $slotRules): array {
+            ->map(function (string $start) use ($room, $date, $reservations, $slotRules): array {
                 $end = $slotRules->endForStart($start);
 
                 return [
                     'start' => $start,
                     'end' => $end,
                     'label' => $start.' - '.$end,
-                    'available' => ! $reservations->contains(
+                    'available' => app(RoomAvailabilityService::class)->permits($room, $date, $start, $end) && ! $reservations->contains(
                         fn (Reservation $reservation): bool => $this->overlaps(
                             $start,
                             $end,

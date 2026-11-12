@@ -202,15 +202,15 @@ class AdminReservationApiTest extends TestCase
             'phone' => '069123456',
         ])
             ->assertCreated()
-            ->assertJsonPath('data.id', (string) $reservation->id)
+            ->assertJsonPath('data.id', fn ($identifier) => $identifier !== (string) $reservation->id)
             ->assertJsonPath('data.status', 'confirmed')
             ->assertJsonPath('data.first_name', 'Ana');
 
-        $this->assertDatabaseCount('reservations', 1);
+        $this->assertDatabaseCount('reservations', 2);
         $this->assertDatabaseHas('reservations', [
             'id' => $reservation->id,
-            'status' => 'confirmed',
-            'email' => 'ana@example.com',
+            'status' => 'cancelled',
+            'email' => 'old@example.com',
         ]);
     }
 

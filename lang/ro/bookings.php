@@ -1,0 +1,26 @@
+<?php
+
+return [
+    'subject' => 'Confirmarea rezervării iHUB',
+    'confirmed' => 'Rezervarea ta este confirmată',
+    'hello' => 'Bună, :name!',
+    'welcome' => 'Te așteptăm la iHUB:',
+    'room' => 'Sala',
+    'location' => 'Locația',
+    'date' => 'Data',
+    'time' => 'Intervalul',
+    'timezone' => 'ora Chișinăului',
+    'reference' => 'Numărul rezervării',
+    'cancel_info' => 'Dacă nu mai poți ajunge, poți anula rezervarea înainte de începerea ei:',
+    'cancel' => 'Anulează rezervarea',
+    'link_info' => 'Linkul deschide o pagină unde vei confirma anularea. Păstrează acest email: oricine are linkul poate anula această rezervare.',
+    'cancel_title' => 'Anularea rezervării iHUB',
+    'cancelled' => 'Rezervarea a fost anulată',
+    'released' => 'Intervalul a fost eliberat. Nu mai trebuie să faci nimic.',
+    'question' => 'Vrei să anulezi rezervarea?',
+    'consequence' => 'Această acțiune eliberează intervalul rezervat.',
+    'confirm_cancel' => 'Confirmă anularea rezervării',
+    'keep' => 'Dacă vrei să păstrezi rezervarea, închide această pagină.',
+    'invalid' => 'Linkul nu mai este valabil pentru această rezervare.',
+    'started' => 'Rezervarea a început deja și nu mai poate fi anulată prin acest link.',
+];

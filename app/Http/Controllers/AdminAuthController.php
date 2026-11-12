@@ -109,6 +109,9 @@ class AdminAuthController extends Controller
             function (User $user, string $password) {
                 $user->forceFill([
                     'password' => $password,
+                    'admin_api_token_hash' => null,
+                    'admin_api_token_expires_at' => null,
+                    'remember_token' => Str::random(60),
                 ])->save();
             }
         );

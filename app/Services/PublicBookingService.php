@@ -4,9 +4,12 @@ namespace App\Services;
 
 use App\Enums\ReservationStatus;
 use App\Exceptions\ReservationOverlapException;
+use App\Jobs\SendReservationConfirmation;
 use App\Models\Reservation;
 use App\Models\Room;
 use App\Services\Telemetry\MetricsRecorder;
+use Illuminate\Database\QueryException;
+use Illuminate\Support\Facades\DB;
 
 class PublicBookingService
 {
@@ -20,46 +23,68 @@ class PublicBookingService
     public function create(array $attributes, string $endTime): Reservation
     {
         return $this->record('create', $attributes['room_id'], function () use ($attributes, $endTime): Reservation {
-            $room = Room::query()
-                ->where('slug', $attributes['room_id'])
-                ->where('is_active', true)
-                ->firstOrFail();
+            return DB::transaction(function () use ($attributes, $endTime): Reservation {
+                $room = Room::query()
+                    ->where('slug', $attributes['room_id'])
+                    ->where('is_active', true)
+                    ->lockForUpdate()
+                    ->firstOrFail();
 
-            $alreadyReserved = Reservation::query()
-                ->where('room_id', $room->id)
-                ->whereDate('reserved_date', $attributes['date'])
-                ->where('status', '!=', ReservationStatus::Cancelled)
-                ->where('starts_at', '<', $endTime)
-                ->where('ends_at', '>', $attributes['start_time'])
-                ->exists();
+                app(RoomAvailabilityService::class)->ensurePermitted($room, $attributes['date'], $attributes['start_time'], $endTime);
 
-            if ($alreadyReserved) {
-                throw new ReservationOverlapException('Selected room is already reserved for this time slot.');
-            }
+                // Lock the room/day rows so concurrent requests serialize on the
+                // overlap check instead of both passing it (TOCTOU race).
+                Reservation::query()
+                    ->where('room_id', $room->id)
+                    ->whereDate('reserved_date', $attributes['date'])
+                    ->lockForUpdate()
+                    ->get();
 
-            $reservation = Reservation::query()
-                ->where('room_id', $room->id)
-                ->whereDate('reserved_date', $attributes['date'])
-                ->where('starts_at', $attributes['start_time'])
-                ->first();
+                $alreadyReserved = Reservation::query()
+                    ->where('room_id', $room->id)
+                    ->whereDate('reserved_date', $attributes['date'])
+                    ->where('status', '!=', ReservationStatus::Cancelled)
+                    ->where('starts_at', '<', $endTime)
+                    ->where('ends_at', '>', $attributes['start_time'])
+                    ->exists();
 
-            $reservation ??= new Reservation([
-                'room_id' => $room->id,
-                'reserved_date' => $attributes['date'],
-                'starts_at' => $attributes['start_time'],
-            ]);
+                if ($alreadyReserved) {
+                    throw new ReservationOverlapException('Selected room is already reserved for this time slot.');
+                }
 
-            $reservation->fill([
-                'status' => ReservationStatus::Confirmed,
-                'ends_at' => $endTime,
-                'first_name' => trim($attributes['first_name']),
-                'last_name' => trim($attributes['last_name']),
-                'email' => str($attributes['email'])->lower()->toString(),
-                'phone' => trim($attributes['phone']),
-                'notes' => isset($attributes['notes']) ? trim($attributes['notes']) : null,
-            ])->save();
+                $reservation = new Reservation([
+                    'room_id' => $room->id,
+                    'reserved_date' => $attributes['date'],
+                    'starts_at' => $attributes['start_time'],
+                ]);
 
-            return $reservation->load('room');
+                $reservation->fill([
+                    'status' => ReservationStatus::Confirmed,
+                    'locale' => $attributes['locale'] ?? 'ro',
+                    'ends_at' => $endTime,
+                    'first_name' => trim($attributes['first_name']),
+                    'last_name' => trim($attributes['last_name']),
+                    'email' => str($attributes['email'])->lower()->toString(),
+                    'phone' => trim($attributes['phone']),
+                    'notes' => isset($attributes['notes']) ? trim($attributes['notes']) : null,
+                ]);
+
+                try {
+                    $reservation->save();
+                } catch (QueryException $exception) {
+                    // 23P01 = exclusion_violation, 23505 = unique_violation. Reached
+                    // only when a concurrent request won the race between check and insert.
+                    if (in_array($exception->getCode(), ['23P01', '23505'], true)) {
+                        throw new ReservationOverlapException('Selected room is already reserved for this time slot.');
+                    }
+
+                    throw $exception;
+                }
+
+                SendReservationConfirmation::dispatch($reservation->id, app(ReservationCancellationLinks::class)->version($reservation));
+
+                return $reservation->load('room');
+            });
         });
     }
 

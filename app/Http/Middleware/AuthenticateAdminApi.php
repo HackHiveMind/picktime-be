@@ -58,6 +58,11 @@ class AuthenticateAdminApi
 
     private function isPerformanceAdminToken(string $token): bool
     {
+        // Never in production: a static bearer with no user and no expiry.
+        if (app()->isProduction()) {
+            return false;
+        }
+
         $performanceToken = config('services.performance_admin_token');
 
         return filled($performanceToken)

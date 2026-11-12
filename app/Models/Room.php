@@ -22,6 +22,7 @@ class Room extends Model
         'accent',
         'image_url',
         'is_active',
+        'opening_hours',
     ];
 
     protected function casts(): array
@@ -30,11 +31,17 @@ class Room extends Model
             'capacity' => 'integer',
             'amenities' => 'array',
             'is_active' => 'boolean',
+            'opening_hours' => 'array',
         ];
     }
 
     public function reservations(): HasMany
     {
         return $this->hasMany(Reservation::class);
+    }
+
+    public function blocks(): HasMany
+    {
+        return $this->hasMany(RoomBlock::class);
     }
 }

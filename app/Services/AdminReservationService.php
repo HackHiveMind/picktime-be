@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\ReservationStatus;
 use App\Exceptions\ReservationOverlapException;
+use App\Jobs\SendReservationConfirmation;
 use App\Models\Reservation;
 use App\Models\Room;
 use App\Services\Telemetry\MetricsRecorder;
@@ -27,17 +28,15 @@ class AdminReservationService
 
                 $this->lockRoomDay($room, $attributes['date']);
 
+                if (($attributes['status'] ?? ReservationStatus::Confirmed->value) !== ReservationStatus::Cancelled->value) {
+                    app(RoomAvailabilityService::class)->ensurePermitted($room, $attributes['date'], $attributes['start_time'], $attributes['end_time']);
+                }
+
                 if ($this->hasOverlap($room, $attributes)) {
                     throw new ReservationOverlapException('Selected room is already reserved for this time range.');
                 }
 
-                $reservation = Reservation::query()
-                    ->where('room_id', $room->id)
-                    ->whereDate('reserved_date', $attributes['date'])
-                    ->where('starts_at', $attributes['start_time'])
-                    ->first();
-
-                $reservation ??= new Reservation([
+                $reservation = new Reservation([
                     'room_id' => $room->id,
                     'reserved_date' => $attributes['date'],
                     'starts_at' => $attributes['start_time'],
@@ -46,6 +45,10 @@ class AdminReservationService
                 $reservation->fill($this->reservationAttributes($attributes, $attributes['status'] ?? ReservationStatus::Confirmed));
 
                 $this->saveOrConflict($reservation);
+
+                if ($reservation->status === ReservationStatus::Confirmed) {
+                    SendReservationConfirmation::dispatch($reservation->id, app(ReservationCancellationLinks::class)->version($reservation));
+                }
 
                 return $reservation->load('room');
             });
@@ -63,16 +66,28 @@ class AdminReservationService
 
                 $this->lockRoomDay($room, $attributes['date']);
 
+                if (($attributes['status'] ?? $reservation->status->value) !== ReservationStatus::Cancelled->value) {
+                    app(RoomAvailabilityService::class)->ensurePermitted($room, $attributes['date'], $attributes['start_time'], $attributes['end_time']);
+                }
+
                 if ($this->hasOverlap($room, $attributes, $reservation)) {
                     throw new ReservationOverlapException('Selected room is already reserved for this time range.');
                 }
 
+                $previousStatus = $reservation->status;
+                $previousVersion = app(ReservationCancellationLinks::class)->version($reservation);
                 $reservation->fill([
                     'room_id' => $room->id,
                     ...$this->reservationAttributes($attributes, $attributes['status'] ?? $reservation->status),
                 ]);
 
                 $this->saveOrConflict($reservation);
+
+                $version = app(ReservationCancellationLinks::class)->version($reservation);
+                if ($reservation->status === ReservationStatus::Confirmed
+                    && ($previousStatus !== ReservationStatus::Confirmed || $previousVersion !== $version)) {
+                    SendReservationConfirmation::dispatch($reservation->id, $version);
+                }
 
                 return $reservation->load('room');
             });
@@ -140,6 +155,7 @@ class AdminReservationService
         return Room::query()
             ->where('slug', $slug)
             ->where('is_active', true)
+            ->lockForUpdate()
             ->firstOrFail();
     }
 
@@ -166,6 +182,7 @@ class AdminReservationService
     {
         return [
             'status' => $status,
+            ...(isset($attributes['locale']) ? ['locale' => $attributes['locale']] : []),
             'reserved_date' => $attributes['date'],
             'starts_at' => $attributes['start_time'],
             'ends_at' => $attributes['end_time'],

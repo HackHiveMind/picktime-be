@@ -12,6 +12,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class AdminReservationController extends Controller
 {
@@ -118,11 +119,18 @@ class AdminReservationController extends Controller
             'phone' => ['required', 'string', 'max:255'],
             'status' => ['nullable', Rule::enum(ReservationStatus::class)],
             'notes' => ['nullable', 'string', 'max:2000'],
+            'locale' => ['sometimes', Rule::in(['ro', 'en', 'ru'])],
         ]);
 
         $validated['end_time'] ??= CarbonImmutable::createFromFormat('H:i', $validated['start_time'])
             ->addHour()
             ->format('H:i');
+
+        if ($validated['end_time'] <= $validated['start_time']) {
+            throw ValidationException::withMessages([
+                'end_time' => 'End time must be after start time on the same day.',
+            ]);
+        }
 
         return $validated;
     }

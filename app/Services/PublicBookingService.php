@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Enums\ReservationStatus;
 use App\Exceptions\ReservationOverlapException;
+use App\Jobs\SendReservationConfirmation;
 use App\Models\Reservation;
 use App\Models\Room;
 use App\Services\Telemetry\MetricsRecorder;
@@ -26,7 +27,10 @@ class PublicBookingService
                 $room = Room::query()
                     ->where('slug', $attributes['room_id'])
                     ->where('is_active', true)
+                    ->lockForUpdate()
                     ->firstOrFail();
+
+                app(RoomAvailabilityService::class)->ensurePermitted($room, $attributes['date'], $attributes['start_time'], $endTime);
 
                 // Lock the room/day rows so concurrent requests serialize on the
                 // overlap check instead of both passing it (TOCTOU race).
@@ -48,13 +52,7 @@ class PublicBookingService
                     throw new ReservationOverlapException('Selected room is already reserved for this time slot.');
                 }
 
-                $reservation = Reservation::query()
-                    ->where('room_id', $room->id)
-                    ->whereDate('reserved_date', $attributes['date'])
-                    ->where('starts_at', $attributes['start_time'])
-                    ->first();
-
-                $reservation ??= new Reservation([
+                $reservation = new Reservation([
                     'room_id' => $room->id,
                     'reserved_date' => $attributes['date'],
                     'starts_at' => $attributes['start_time'],
@@ -62,6 +60,7 @@ class PublicBookingService
 
                 $reservation->fill([
                     'status' => ReservationStatus::Confirmed,
+                    'locale' => $attributes['locale'] ?? 'ro',
                     'ends_at' => $endTime,
                     'first_name' => trim($attributes['first_name']),
                     'last_name' => trim($attributes['last_name']),
@@ -81,6 +80,8 @@ class PublicBookingService
 
                     throw $exception;
                 }
+
+                SendReservationConfirmation::dispatch($reservation->id, app(ReservationCancellationLinks::class)->version($reservation));
 
                 return $reservation->load('room');
             });

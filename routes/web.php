@@ -3,9 +3,15 @@
 use App\Http\Controllers\AdminAuthController;
 use App\Http\Controllers\AdminDashboardController;
 use App\Http\Controllers\AdminReservationWebController;
+use App\Http\Controllers\ReservationCancellationController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', fn () => redirect(auth()->check() ? config('app.admin_dashboard_url', '/admin') : '/admin/login'));
+
+Route::middleware(['signed', 'throttle:public-api'])->group(function (): void {
+    Route::get('/reservations/{reservation}/cancel', [ReservationCancellationController::class, 'show'])->name('reservations.cancel');
+    Route::post('/reservations/{reservation}/cancel', [ReservationCancellationController::class, 'cancel']);
+});
 
 Route::get('/admin/register', [AdminAuthController::class, 'showRegister'])->name('admin.register');
 Route::post('/admin/register', [AdminAuthController::class, 'register'])->middleware('throttle:login');

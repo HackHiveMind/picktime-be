@@ -99,6 +99,32 @@ class BookingApiTest extends TestCase
             ->assertJsonPath('data.1.slots.1.available', true);
     }
 
+    public function test_batch_availability_endpoint_can_be_scoped_to_selected_room(): void
+    {
+        Room::factory()->create([
+            'name' => 'Blue Conference Room',
+            'slug' => 'blue-conference',
+            'is_active' => true,
+        ]);
+        $greenConference = Room::factory()->create([
+            'name' => 'Green Conference Room',
+            'slug' => 'green-conference',
+            'is_active' => true,
+        ]);
+        Reservation::factory()->for($greenConference)->create([
+            'status' => ReservationStatus::Confirmed,
+            'reserved_date' => '2026-06-24',
+            'starts_at' => '09:00',
+            'ends_at' => '10:00',
+        ]);
+
+        $this->getJson('/api/availability?date=2026-06-24&room_id=green-conference')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.room_id', 'green-conference')
+            ->assertJsonPath('data.0.slots.0.available', false);
+    }
+
     public function test_batch_availability_endpoint_returns_a_whole_date_range_in_one_response(): void
     {
         $brainstorm = Room::factory()->create([
@@ -261,15 +287,15 @@ class BookingApiTest extends TestCase
             'phone' => '+373 600 00 000',
         ])
             ->assertCreated()
-            ->assertJsonPath('data.id', (string) $reservation->id)
+            ->assertJsonPath('data.id', fn ($identifier) => $identifier !== (string) $reservation->id)
             ->assertJsonPath('data.status', 'confirmed')
             ->assertJsonPath('data.email', 'ana@example.com');
 
-        $this->assertDatabaseCount('reservations', 1);
+        $this->assertDatabaseCount('reservations', 2);
         $this->assertDatabaseHas('reservations', [
             'id' => $reservation->id,
-            'status' => 'confirmed',
-            'email' => 'ana@example.com',
+            'status' => 'cancelled',
+            'email' => 'old@example.com',
         ]);
     }
 

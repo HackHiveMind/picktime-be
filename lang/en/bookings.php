@@ -1,0 +1,26 @@
+<?php
+
+return [
+    'subject' => 'Your iHUB booking confirmation',
+    'confirmed' => 'Your booking is confirmed',
+    'hello' => 'Hello, :name!',
+    'welcome' => 'We look forward to seeing you at iHUB:',
+    'room' => 'Room',
+    'location' => 'Location',
+    'date' => 'Date',
+    'time' => 'Time',
+    'timezone' => 'Chișinău local time',
+    'reference' => 'Booking number',
+    'cancel_info' => 'If you can no longer attend, you can cancel before your booking starts:',
+    'cancel' => 'Cancel booking',
+    'link_info' => 'The link opens a page where you confirm cancellation. Keep this email private: anyone with the link can cancel this booking.',
+    'cancel_title' => 'Cancel your iHUB booking',
+    'cancelled' => 'Your booking has been cancelled',
+    'released' => 'The time slot is now available. No further action is needed.',
+    'question' => 'Do you want to cancel your booking?',
+    'consequence' => 'This action releases your reserved time slot.',
+    'confirm_cancel' => 'Confirm cancellation',
+    'keep' => 'To keep your booking, simply close this page.',
+    'invalid' => 'This link is no longer valid for this booking.',
+    'started' => 'This booking has already started and can no longer be cancelled using this link.',
+];

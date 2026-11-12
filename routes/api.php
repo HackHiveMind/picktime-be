@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AdminReservationController;
 use App\Http\Controllers\Api\AdminRoomController;
 use App\Http\Controllers\Api\MetricsController;
 use App\Http\Controllers\Api\PublicBookingController;
+use App\Http\Controllers\Api\RoomScheduleController;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Route;
 
@@ -27,6 +28,12 @@ Route::middleware('api.telemetry')->group(function (): void {
         ->middleware('throttle:reservations');
 
     Route::middleware('admin.api')->group(function (): void {
+        Route::get('/admin/room-blocks', [RoomScheduleController::class, 'index']);
+        Route::post('/admin/room-blocks', [RoomScheduleController::class, 'storeBlock']);
+        Route::put('/admin/room-blocks/{block}', [RoomScheduleController::class, 'updateBlock']);
+        Route::delete('/admin/room-blocks/{block}', [RoomScheduleController::class, 'destroyBlock']);
+        Route::get('/admin/rooms/{room:slug}/schedule', [RoomScheduleController::class, 'show']);
+        Route::put('/admin/rooms/{room:slug}/schedule', [RoomScheduleController::class, 'update']);
         Route::get('/admin/reservations', [AdminReservationController::class, 'index']);
         Route::post('/admin/reservations', [AdminReservationController::class, 'store']);
         Route::put('/admin/reservations/{reservation}', [AdminReservationController::class, 'update']);
